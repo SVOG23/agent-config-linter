@@ -1,0 +1,44 @@
+{
+  "name": "agent-config-linter",
+  "version": "0.1.0",
+  "description": "Lint AI agent config files (CLAUDE.md, AGENTS.md, .cursorrules, skills, MCP configs) for staleness, bloat, contradictions, and broken references.",
+  "type": "module",
+  "bin": {
+    "agentlint": "dist/cli.js"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "lint",
+    "ai",
+    "agents",
+    "claude",
+    "cursor",
+    "copilot",
+    "claude-code",
+    "cli"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/SVOG23/agent-config-linter.git"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  }
+}
