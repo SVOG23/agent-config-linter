@@ -4,6 +4,8 @@ Your agent configs rot. The repo moves on — files get renamed, scripts get rep
 
 **unrot** finds the rot: a linter for the config files that steer your AI coding agents — `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, Claude Code skills and commands, MCP configs, Copilot instructions. Pure static analysis + git: no network calls, no telemetry, no LLM calls, and it never modifies your files.
 
+![unrot check run on openai/codex, reporting two errors: a 322-line AGENTS.md past the size threshold, and a referenced path that does not exist in the repo](assets/sample-output.png)
+
 ## Quick start
 
 ```bash
