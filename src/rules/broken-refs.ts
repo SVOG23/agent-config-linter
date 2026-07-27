@@ -77,11 +77,35 @@ export const brokenRefs: Rule = {
     const dirs = collectDirs(ctx.repoFiles);
     let scripts: Set<string> | null | undefined;
     let repoFileList: string[] | undefined;
+    let stemIndex: Map<string, string[]> | undefined;
+
+    // The file the broken ref probably means now: same basename-minus-extension
+    // elsewhere in the repo (renamed extension or moved directory).
+    const findNearMiss = (value: string): string | null => {
+      const base = value.slice(value.lastIndexOf('/') + 1);
+      const stem = base.replace(/\.\w{1,8}$/, '');
+      if (stem.length < 4) return null; // index, main, ... too generic
+      if (stemIndex === undefined) {
+        stemIndex = new Map();
+        for (const path of ctx.repoFiles) {
+          const b = path.slice(path.lastIndexOf('/') + 1);
+          const s = b.replace(/\.\w{1,8}$/, '');
+          const list = stemIndex.get(s);
+          if (list) list.push(path);
+          else stemIndex.set(s, [path]);
+        }
+      }
+      const candidates = stemIndex.get(stem) ?? [];
+      if (candidates.length === 0 || candidates.length > 3) return null;
+      return [...candidates].sort((a, b) => a.length - b.length)[0];
+    };
 
     const isBroken = (ref: ExtractedRef, fileDir: string, lineText: string): boolean => {
       const cleaned = ref.value.replace(/^\//, '');
       if (isConfigLocationMention(cleaned)) return false;
       if (HEDGED_LINE.test(lineText)) return false;
+      // .env files are created at setup time and gitignored by design.
+      if (/^\.env(\..+)?$/.test(cleaned.slice(cleaned.lastIndexOf('/') + 1))) return false;
       const candidates = candidatesFor(fileDir, ref.value);
       if (candidates.length === 0) return false; // escapes the repo; cannot verify
 
@@ -123,7 +147,12 @@ export const brokenRefs: Rule = {
 
         if (ref.kind === 'npm-script') {
           if (scripts === undefined) scripts = collectScripts(ctx);
-          if (scripts === null || scripts.has(ref.value)) continue;
+          if (scripts === null) continue;
+          // `npm run watch:` (from prose like "npm run watch:*") names a family.
+          const found = ref.value.endsWith(':')
+            ? [...scripts].some((s) => s.startsWith(ref.value))
+            : scripts.has(ref.value);
+          if (found) continue;
           seen.add(key);
           findings.push({
             rule: 'broken-refs',
@@ -138,13 +167,16 @@ export const brokenRefs: Rule = {
 
         if (!isBroken(ref, fileDir, lines[ref.line - 1] ?? '')) continue;
         seen.add(key);
+        const nearMiss = findNearMiss(ref.value);
         findings.push({
           rule: 'broken-refs',
           severity: 'error',
           file: file.path,
           line: ref.line,
           message: `Referenced path "${ref.value}" does not exist in the repo`,
-          suggestion: 'Fix the path or delete the stale reference',
+          suggestion: nearMiss
+            ? `Did you mean "${nearMiss}"? Otherwise fix the path or delete the stale reference`
+            : 'Fix the path or delete the stale reference',
         });
       }
     }

@@ -48,12 +48,14 @@ sdk/AGENTS.md
 
 ## Found in the wild
 
-From a validation run across 20 popular open-source repos:
+From a validation run across 19 popular open-source repos (Next.js, VS Code, React, Svelte, Vite, cline, codex, OpenHands, opencode, goose, ...), with every error-level finding hand-verified against the repo:
 
+- **microsoft/vscode** — the Copilot extension's `AGENTS.md` references four source files that no longer exist; for one, unrot spots the file's new location: *Did you mean "...common/skillConfigLocations.ts"?*
 - **openai/codex** — `AGENTS.md:35` tells agents to use `codex-rs/codex-mcp/src/mcp_connection_manager.rs`, which isn't in the repo.
+- **sst/opencode** — a committed `AGENTS.md` tells agents to verify against `/Users/kit/code/...`, a path that exists on exactly one maintainer's laptop.
 - **langchain-ai/langchainjs** — ships an `AGENTS.md` over 400 lines long, well past where models reliably follow every rule.
 - **BerriAI/litellm** — `@`-imports an 11.8KB `CLAUDE.md` into every session, from two separate files.
-- **12 of the 20** repos had agent configs at all; **9 of those 12** had findings.
+- **16 of the 19** repos had agent configs at all; **11 of those 16** had findings.
 
 These were shallow clones, so the `staleness` rule — which needs full git history — never ran. A full clone would likely surface more, not less.
 
@@ -84,11 +86,11 @@ unrot check [path] [--json] [--no-color] [--config <file>] [--rules <a,b>]
 | `missing-config` | warn | An active repo (≥20 commits, ≥5 source files) with no agent config at all. |
 | `oversized` | warn / error | Instruction files past the size where models start dropping rules: warn >100 lines or >10KB, error >200 lines. |
 | `contradictions` | warn / info | Files that disagree on package manager or indentation (warn); commit conventions defined in multiple non-identical files (info). |
-| `broken-refs` | error | `@`-imports, markdown links, backtick paths, and `npm run` scripts that don't exist anywhere in the repo. |
+| `broken-refs` | error | `@`-imports, markdown links, backtick paths, and `npm`/`pnpm`/`bun`/`yarn run` scripts that don't exist anywhere in the repo. When the missing file exists elsewhere (renamed extension, moved directory), the finding says so: *Did you mean "..."?* |
 | `wrong-level` | warn | Personal content in committed files — `/Users/<name>/...` paths, "I prefer...", "my machine" — which belongs in user-level `~/.claude/CLAUDE.md`. |
 | `eager-embeds` | warn | `@`-imports that inline a large file (>10KB) into every session; suggests a conditional pointer instead. |
 
-The rules are deliberately conservative. `broken-refs`, for example, forgives paths that resolve deeper in a monorepo, build artifacts (`dist/...`), gitignored-but-present files, package specifiers, and references hedged with "(if exists)" — every reported error should be worth fixing.
+The rules are deliberately conservative. `broken-refs`, for example, forgives paths that resolve deeper in a monorepo, build artifacts (`dist/...`), gitignored-but-present files, setup-time files (`.env*`), package specifiers, script-family mentions (`npm run watch:*`), references hedged with "(if exists)", and `@`-imports shown inside code spans or fences (which Claude Code doesn't evaluate either) — every reported error should be worth fixing.
 
 ## Configuration (optional)
 
@@ -149,7 +151,7 @@ Symlinked configs (e.g. `CLAUDE.md -> AGENTS.md`, a common way to share one sour
 
 ## Scope
 
-v1 is read-only, single-repo static analysis. No auto-fix, no multi-repo scanning, no LLM calls. Validated against 20 real-world open-source repos (Next.js, Svelte, Vite, cline, codex, ...) for crash-freedom and false-positive rate.
+v1 is read-only, single-repo static analysis. No auto-fix, no multi-repo scanning, no LLM calls. Validated against 19 real-world open-source repos (Next.js, VS Code, React, Svelte, Vite, cline, codex, ...) for crash-freedom and false-positive rate, with every error-level finding hand-verified.
 
 ## License
 

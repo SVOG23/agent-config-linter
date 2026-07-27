@@ -16,6 +16,9 @@ export const eagerEmbeds: Rule = {
 
     for (const file of ctx.files) {
       if (!file.isInstruction) continue;
+      // A file that is nothing but one @-import (CLAUDE.md -> "@AGENTS.md") is
+      // a deliberate alias, not an accidental embed.
+      if (/^@\S+$/.test(ctx.read(file).trim())) continue;
       const fileDir = posix.dirname(file.path);
       const dir = fileDir === '.' ? '' : fileDir;
       const seen = new Set<string>();

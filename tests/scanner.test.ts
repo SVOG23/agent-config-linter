@@ -94,6 +94,20 @@ describe('scan', () => {
     expect(paths).not.toContain('ignored-dir/CLAUDE.md');
   });
 
+  it('only classifies markdown files under .cursor/rules', () => {
+    const repo = track(
+      makeRepo({
+        '.cursor/rules/style.mdc': 'rule',
+        '.cursor/rules/notes.md': 'rule',
+        '.cursor/rules/.DS_Store': 'binary junk',
+      }),
+    );
+    expect(Object.keys(kinds(repo.root))).toEqual([
+      '.cursor/rules/notes.md',
+      '.cursor/rules/style.mdc',
+    ]);
+  });
+
   it('dedupes symlinked config files onto one physical file', () => {
     const repo = track(makeRepo({ 'AGENTS.md': '# canonical' }, { git: true }));
     symlinkSync('AGENTS.md', join(repo.root, 'CLAUDE.md'));

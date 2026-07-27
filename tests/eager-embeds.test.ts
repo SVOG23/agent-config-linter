@@ -51,6 +51,18 @@ describe('eager-embeds', () => {
     expect(eagerEmbeds.check(makeCtx(repo.root))).toHaveLength(1);
   });
 
+  it('skips pure pointer files whose entire content is one @-import', () => {
+    const repo = track(makeRepo({ 'CLAUDE.md': '@AGENTS.md\n', 'AGENTS.md': bigDoc }));
+    expect(eagerEmbeds.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('still flags large embeds in files with other content', () => {
+    const repo = track(
+      makeRepo({ 'CLAUDE.md': '# Project\n@AGENTS.md\nMore rules here\n', 'AGENTS.md': bigDoc }),
+    );
+    expect(eagerEmbeds.check(makeCtx(repo.root))).toHaveLength(1);
+  });
+
   it('honors the configured byte threshold', () => {
     const repo = track(
       makeRepo({

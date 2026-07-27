@@ -39,7 +39,10 @@ export function classify(path: string): Classification | null {
 
   for (let i = 0; i < segments.length - 1; i++) {
     if (segments[i] === '.cursor' && segments[i + 1] === 'rules' && i + 1 < segments.length - 1) {
-      return { kind: 'cursor-rule', isInstruction: true };
+      if (base.endsWith('.md') || base.endsWith('.mdc')) {
+        return { kind: 'cursor-rule', isInstruction: true };
+      }
+      return null; // .DS_Store and friends are not rules
     }
     if (segments[i] === '.claude') {
       const rest = segments.slice(i + 1);

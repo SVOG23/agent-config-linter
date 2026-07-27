@@ -47,6 +47,40 @@ describe('extractRefs', () => {
     expect(scripts).toEqual(['build:prod', 'lint']);
   });
 
+  it('does not extract @-imports or md-links from code spans or fenced blocks', () => {
+    const refs = extractRefs(
+      'Example: `> @tests/auth.test.ts fix this` and `[label](docs/fake.md)` syntax\n```\n@docs/example.md\n[x](docs/gone.md)\n```\nReal @docs/real.md\n',
+    );
+    expect(refs.filter((r) => r.kind === 'at-import').map((r) => r.value)).toEqual([
+      'docs/real.md',
+    ]);
+    expect(refs.filter((r) => r.kind === 'md-link')).toHaveLength(0);
+  });
+
+  it('still extracts npm scripts and backtick paths inside fenced blocks', () => {
+    const refs = extractRefs('```bash\nnpm run deploy\ncat `scripts/setup.sh`\n```\n');
+    expect(refs.filter((r) => r.kind === 'npm-script').map((r) => r.value)).toEqual(['deploy']);
+    expect(refs.filter((r) => r.kind === 'path-token').map((r) => r.value)).toEqual([
+      'scripts/setup.sh',
+    ]);
+  });
+
+  it('extracts bun run and yarn run scripts', () => {
+    const refs = extractRefs('Use `bun run typecheck` or yarn run lint\n');
+    expect(refs.filter((r) => r.kind === 'npm-script').map((r) => r.value)).toEqual([
+      'typecheck',
+      'lint',
+    ]);
+  });
+
+  it('strips sentence punctuation from script names but keeps prefix colons', () => {
+    const refs = extractRefs('First npm run build. Then use npm run watch:* modes\n');
+    expect(refs.filter((r) => r.kind === 'npm-script').map((r) => r.value)).toEqual([
+      'build',
+      'watch:',
+    ]);
+  });
+
   it('skips flags after run and ellipsis pseudo-paths', () => {
     const refs = extractRefs(
       'Use `pnpm run --filter app build`\nEdit `webview-ui/.../utils.ts` as needed\n',
@@ -184,6 +218,84 @@ describe('broken-refs', () => {
   it('skips npm script checks when there is no package.json', () => {
     const repo = track(makeRepo({ 'CLAUDE.md': 'Run `npm run anything`\n' }));
     expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('accepts trailing-colon mentions when a script family matches the prefix', () => {
+    const repo = track(
+      makeRepo({
+        'CLAUDE.md': 'Use `npm run watch:*` for the various watch modes\n',
+        'package.json': JSON.stringify({ scripts: { 'watch:esbuild': 'x', 'watch:tsc': 'y' } }),
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('flags prefix mentions with no matching script family', () => {
+    const repo = track(
+      makeRepo({
+        'CLAUDE.md': 'Use `npm run gone:*` tasks\n',
+        'package.json': JSON.stringify({ scripts: { build: 'x' } }),
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].message).toContain('gone:');
+  });
+
+  it('forgives setup-time env files that are created locally', () => {
+    const repo = track(
+      makeRepo({
+        'CLAUDE.md': 'Set vars in `frontend/.env` or `frontend/.env.production`\n',
+        'frontend/app.ts': 'code',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('does not flag @-imports shown inside fenced example blocks', () => {
+    const repo = track(
+      makeRepo({ 'CLAUDE.md': 'Import syntax:\n```\n@docs/missing.md\n```\n' }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('checks bun run scripts against package.json', () => {
+    const repo = track(
+      makeRepo({
+        'CLAUDE.md': 'Run `bun run typecheck` or `bun run missing`\n',
+        'package.json': JSON.stringify({ scripts: { typecheck: 'tsc' } }),
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].message).toContain('missing');
+  });
+
+  it('suggests a near-miss when the missing file exists under another extension or directory', () => {
+    const repo = track(
+      makeRepo({
+        'CLAUDE.md': 'Actions live in `src/types/action-type.ts`\n',
+        'src/types/action-type.tsx': 'code',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].suggestion).toContain('src/types/action-type.tsx');
+  });
+
+  it('omits the near-miss suggestion when the name is too common', () => {
+    const repo = track(
+      makeRepo({
+        'CLAUDE.md': 'See `src/gone/index.ts`\n',
+        'src/a/index.ts': 'x',
+        'src/b/index.ts': 'x',
+        'src/c/index.ts': 'x',
+        'src/d/index.ts': 'x',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].suggestion).not.toContain('index.ts');
   });
 
   it('does not flag files that exist on disk but are gitignored', () => {

@@ -57,6 +57,28 @@ describe('runCli', () => {
     expect(result.stdout).toMatch(/no issues/i);
   });
 
+  it('exits 2 with a clear message when the path does not exist', async () => {
+    const repo = track(makeRepo({}));
+    const result = await cli(['check', 'no/such/dir'], repo.root);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toMatch(/no such directory/i);
+    expect(result.stdout).toBe('');
+  });
+
+  it('exits 2 when the path is a file, not a directory', async () => {
+    const repo = track(makeRepo({ 'CLAUDE.md': '# hi\n' }));
+    const result = await cli(['check', 'CLAUDE.md'], repo.root);
+    expect(result.code).toBe(2);
+    expect(result.stderr).toMatch(/not a directory/i);
+  });
+
+  it('tolerates binary content in config files', async () => {
+    const bytes = Array.from({ length: 512 }, (_, i) => String.fromCharCode(i % 256)).join('');
+    const repo = track(makeRepo({ '.cursorrules': bytes }));
+    const result = await cli(['check'], repo.root);
+    expect(result.code).toBe(0);
+  });
+
   it('accepts an explicit path argument', async () => {
     const repo = track(makeRepo({ 'CLAUDE.md': '# Fine\n' }));
     const result = await cli(['check', repo.root], '/');

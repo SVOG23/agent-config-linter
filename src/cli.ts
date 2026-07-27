@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { realpathSync, readFileSync } from 'node:fs';
+import { realpathSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { colorize } from './colors.js';
@@ -112,6 +112,17 @@ export async function runCli(
   }
 
   const root = resolve(cwd, args.path ?? '.');
+  let rootStats;
+  try {
+    rootStats = statSync(root);
+  } catch {
+    err.write(`unrot: no such directory: ${root}\n`);
+    return 2;
+  }
+  if (!rootStats.isDirectory()) {
+    err.write(`unrot: not a directory: ${root}\n`);
+    return 2;
+  }
   const useColor =
     args.color && !args.json && out.isTTY === true && process.env['NO_COLOR'] === undefined;
   const colors = colorize(useColor);
