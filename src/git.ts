@@ -19,8 +19,22 @@ export function openGit(root: string): GitInfo | null {
   if (inside?.trim() !== 'true') return null;
 
   const lastCommitCache = new Map<string, number | null>();
-  const sinceCache = new Map<number, number>();
-  let total: number | null = null;
+  let commitTimes: number[] | null = null;
+
+  // One pass over the whole history; counting in JS avoids the traversal
+  // quirks of `rev-list --since` (observed undercounting in CI).
+  const allCommitTimes = (): number[] => {
+    if (commitTimes === null) {
+      const out = run(root, ['log', '--format=%ct']);
+      commitTimes = out
+        ? out
+            .split('\n')
+            .filter((line) => line.length > 0)
+            .map((line) => Number(line) * 1000)
+        : [];
+    }
+    return commitTimes;
+  };
 
   return {
     lastCommitMs(relPath: string): number | null {
@@ -33,20 +47,11 @@ export function openGit(root: string): GitInfo | null {
     },
 
     commitsSince(unixMs: number): number {
-      const cached = sinceCache.get(unixMs);
-      if (cached !== undefined) return cached;
-      const iso = new Date(unixMs).toISOString();
-      const out = run(root, ['rev-list', '--count', 'HEAD', `--since=${iso}`]);
-      const value = out ? Number(out.trim()) || 0 : 0;
-      sinceCache.set(unixMs, value);
-      return value;
+      return allCommitTimes().filter((t) => t > unixMs).length;
     },
 
     totalCommits(): number {
-      if (total !== null) return total;
-      const out = run(root, ['rev-list', '--count', 'HEAD']);
-      total = out ? Number(out.trim()) || 0 : 0;
-      return total;
+      return allCommitTimes().length;
     },
   };
 }
