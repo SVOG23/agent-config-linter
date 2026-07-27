@@ -28,6 +28,11 @@ describe('wrong-level', () => {
     expect(check('Open C:\\Users\\bob\\dev\\proj\n')).toHaveLength(1);
   });
 
+  it('ignores CI-runner and generic example home paths', () => {
+    expect(check('cd /home/runner/work/repo/repo/python\n')).toHaveLength(0);
+    expect(check('Assume checkout at /home/user/project/ layout\n')).toHaveLength(0);
+  });
+
   it('flags first-person preferences', () => {
     const findings = check('I prefer tabs over spaces\n');
     expect(findings).toHaveLength(1);

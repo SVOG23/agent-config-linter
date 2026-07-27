@@ -1,11 +1,25 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { classify, SKIP_DIRS } from '../scanner.js';
 import type { Finding, Rule, RuleContext } from '../types.js';
 import { extractRefs, type ExtractedRef } from './refs.js';
 
-/** Lines that admit the target may be absent ("read X, if it exists"). */
-const HEDGED_LINE = /\bif (?:it |they |one )?(?:exists?|present|available)\b/i;
+/** Lines that admit the target may be absent ("read X, if it exists", "unless the file already exists"). */
+const HEDGED_LINE = /\b(?:if|unless)\b[^;!?\n]{0,60}?\b(?:exists?|present|available)\b/i;
+
+/** Metasyntactic names mark example paths, not claims (`./foo.ts`, `src/xxx/xxx.feature`, `test_EventNameHere.py`). */
+const PLACEHOLDER = /(?:^|\/)(?:foo|bar|baz|qux|quux|xxx|yyy|zzz)(?:[./]|$)|Here\.\w{1,8}$/;
+
+/** True when git would ignore this path — expected to be absent from a fresh clone. */
+function isGitIgnored(root: string, relPath: string): boolean {
+  try {
+    execFileSync('git', ['-C', root, 'check-ignore', '-q', relPath], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** Mentions of config locations rather than claims that a repo file exists. */
 function isConfigLocationMention(cleaned: string): boolean {
@@ -106,6 +120,7 @@ export const brokenRefs: Rule = {
       if (HEDGED_LINE.test(lineText)) return false;
       // .env files are created at setup time and gitignored by design.
       if (/^\.env(\..+)?$/.test(cleaned.slice(cleaned.lastIndexOf('/') + 1))) return false;
+      if (PLACEHOLDER.test(cleaned)) return false;
       const candidates = candidatesFor(fileDir, ref.value);
       if (candidates.length === 0) return false; // escapes the repo; cannot verify
 
@@ -130,6 +145,9 @@ export const brokenRefs: Rule = {
         const anchored = candidatesFor(fileDir, first).some((c) => dirs.has(c));
         if (!anchored) return false;
       }
+
+      // Matches a gitignore rule: build output expected to be absent when fresh.
+      if (ctx.git && candidates.some((c) => isGitIgnored(ctx.root, c))) return false;
       return true;
     };
 

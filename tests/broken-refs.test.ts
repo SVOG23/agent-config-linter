@@ -298,6 +298,61 @@ describe('broken-refs', () => {
     expect(findings[0].suggestion).not.toContain('index.ts');
   });
 
+  it('skips placeholder paths that were never real claims', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          'Name tests like `tests/test_action_EventNameHere.py`\nCreate `src/features/xxx/xxx.feature`\nUse extensions like `./foo.ts` or `./bar.tsx`\n',
+        'tests/real_test.py': 'x',
+        'src/app.ts': 'x',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('forgives absent paths that match gitignore rules (build output)', () => {
+    const repo = track(
+      makeRepo(
+        {},
+        {
+          commits: [
+            {
+              files: {
+                '.gitignore': 'packages/client/runtime/\n*.bundle.js\n',
+                'CLAUDE.md':
+                  'Generated clients import `packages/client/runtime/client.js`\nBundles land at [bundle](build-out/app.bundle.js)\n',
+                'packages/client/src/app.ts': 'x',
+              },
+              daysAgo: 1,
+            },
+          ],
+        },
+      ),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips references hedged with "unless ... already exists"', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'Do not create `./utils/index.ts` unless the file already exists\n',
+        'src/app.ts': 'x',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('hedge detection tolerates dots in the hedged path', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          "- **Avoid creating barrel files** (`index.ts` that re-export from other modules). Import directly from the source file (e.g., `import { foo } from './utils/query-utils'` not `import { foo } from './utils'`), unless `./utils/index.ts` file already exists.\n",
+        'src/app.ts': 'x',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
   it('does not flag files that exist on disk but are gitignored', () => {
     const repo = track(
       makeRepo(

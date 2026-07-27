@@ -7,7 +7,9 @@ interface Pattern {
 
 const PATTERNS: Pattern[] = [
   {
-    regex: /(?:\/(?:Users|home)\/[\w.-]+\/|[A-Za-z]:\\Users\\[\w.-]+\\)/,
+    // CI runners and generic example accounts are not personal machines.
+    regex:
+      /(?:\/(?:Users|home)\/(?!(?:runner|user|username|yourname|example)[/\\])[\w.-]+\/|[A-Za-z]:\\Users\\(?!(?:runner|user|username|yourname|example)[/\\])[\w.-]+\\)/,
     describe: (m) => `Machine-specific path "${m.replace(/[/\\]$/, '')}" — breaks for everyone else`,
   },
   {

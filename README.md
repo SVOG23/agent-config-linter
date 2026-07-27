@@ -48,14 +48,14 @@ sdk/AGENTS.md
 
 ## Found in the wild
 
-From a validation run across 19 popular open-source repos (Next.js, VS Code, React, Svelte, Vite, cline, codex, OpenHands, opencode, goose, ...), with every error-level finding hand-verified against the repo:
+From a validation run across 69 popular open-source repos (Next.js, VS Code, React, Django, prisma, storybook, supabase, zed, ollama, cline, codex, OpenHands, ...), with every error-level finding hand-verified against the repo:
 
 - **microsoft/vscode** — the Copilot extension's `AGENTS.md` references four source files that no longer exist; for one, unrot spots the file's new location: *Did you mean "...common/skillConfigLocations.ts"?*
 - **openai/codex** — `AGENTS.md:35` tells agents to use `codex-rs/codex-mcp/src/mcp_connection_manager.rs`, which isn't in the repo.
 - **sst/opencode** — a committed `AGENTS.md` tells agents to verify against `/Users/kit/code/...`, a path that exists on exactly one maintainer's laptop.
 - **langchain-ai/langchainjs** — ships an `AGENTS.md` over 400 lines long, well past where models reliably follow every rule.
 - **BerriAI/litellm** — `@`-imports an 11.8KB `CLAUDE.md` into every session, from two separate files.
-- **16 of the 19** repos had agent configs at all; **11 of those 16** had findings.
+- **47 of the 69** repos had agent configs at all; **35 of those 47** had findings.
 
 These were shallow clones, so the `staleness` rule — which needs full git history — never ran. A full clone would likely surface more, not less.
 
@@ -90,7 +90,7 @@ unrot check [path] [--json] [--no-color] [--config <file>] [--rules <a,b>]
 | `wrong-level` | warn | Personal content in committed files — `/Users/<name>/...` paths, "I prefer...", "my machine" — which belongs in user-level `~/.claude/CLAUDE.md`. |
 | `eager-embeds` | warn | `@`-imports that inline a large file (>10KB) into every session; suggests a conditional pointer instead. |
 
-The rules are deliberately conservative. `broken-refs`, for example, forgives paths that resolve deeper in a monorepo, build artifacts (`dist/...`), gitignored-but-present files, setup-time files (`.env*`), package specifiers, script-family mentions (`npm run watch:*`), references hedged with "(if exists)", and `@`-imports shown inside code spans or fences (which Claude Code doesn't evaluate either) — every reported error should be worth fixing.
+The rules are deliberately conservative. `broken-refs`, for example, forgives paths that resolve deeper in a monorepo, build artifacts (`dist/...` or anything matching a `.gitignore` rule), gitignored-but-present files, setup-time files (`.env*`), placeholder paths (`./foo.ts`, `src/xxx/xxx.feature`), package specifiers, script-family mentions (`npm run watch:*`), references hedged with "if/unless ... exists", and `@`-imports shown inside code spans or fences (which Claude Code doesn't evaluate either) — every reported error should be worth fixing.
 
 ## Configuration (optional)
 
@@ -151,7 +151,7 @@ Symlinked configs (e.g. `CLAUDE.md -> AGENTS.md`, a common way to share one sour
 
 ## Scope
 
-v1 is read-only, single-repo static analysis. No auto-fix, no multi-repo scanning, no LLM calls. Validated against 19 real-world open-source repos (Next.js, VS Code, React, Svelte, Vite, cline, codex, ...) for crash-freedom and false-positive rate, with every error-level finding hand-verified.
+v1 is read-only, single-repo static analysis. No auto-fix, no multi-repo scanning, no LLM calls. Validated against 69 real-world open-source repos for crash-freedom and false-positive rate — every error-level finding hand-verified — plus a mutation-testing harness that injects known rot into real configs (99%+ caught) and confirms the forgiveness heuristics stay quiet (188/188 clean).
 
 ## License
 
