@@ -1,6 +1,6 @@
 {
   "name": "unrot",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Lint AI agent config files (CLAUDE.md, AGENTS.md, .cursorrules, skills, MCP configs) for staleness, bloat, contradictions, and broken references.",
   "type": "module",
   "bin": {
