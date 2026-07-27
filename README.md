@@ -66,12 +66,13 @@ These were shallow clones, so the `staleness` rule — which needs full git hist
 ```
 unrot scan  [path] [--json] [--no-color]
 unrot check [path] [--json] [--no-color] [--config <file>] [--rules <a,b>]
+unrot fleet <target> [--json] [--no-color] [--config <file>] [--concurrency <n>] [--keep] [--token <t>]
 ```
 
 | Exit code | Meaning |
 |---|---|
 | 0 | No error-severity findings |
-| 1 | `check` found at least one error |
+| 1 | `check`/`fleet` found at least one error |
 | 2 | Usage or runtime failure |
 
 ## What it finds
@@ -164,9 +165,49 @@ lint-agent-configs:
 
 Tune or silence rules for CI via `.unrot.json` (see Configuration above).
 
+## Fleet scanning
+
+Scan many repos at once and get one combined health report:
+
+```
+unrot fleet gh:your-org            # every repo of a GitHub org or user (skips archived + forks)
+unrot fleet repos.txt              # a file listing repos, one per line (owner/repo or full git URL)
+unrot fleet ./work/                # a local directory whose subdirectories are repos
+unrot fleet gh:your-org --json     # schemaVersion-2 JSON for dashboards/CI
+```
+
+```
+Fleet report for gh:your-org
+
+  Repo                Configs  Errors  Warnings  Health
+  your-org/api              4       2         3       C
+  your-org/webapp           2       0         1       B
+  your-org/cli              1       0         0       A
+  your-org/data-jobs        0       0         0       —
+
+  4 repos scanned, 3 have agent configs, 2 have findings
+  2 errors, 4 warnings
+
+Worst offenders:
+  your-org/api (2 errors)
+    CLAUDE.md: Referenced path "docs/setup.md" does not exist in the repo
+```
+
+Health grades:
+
+- **A** — configs present, no findings.
+- **B** — findings, but nothing error-severity.
+- **C** — 1–2 errors.
+- **D** — 3 or more errors.
+- **—** — no agent configs at all.
+
+Remote repos are shallow-cloned (`--depth 50`) into a temp dir that is deleted afterwards (`--keep` to retain). The `staleness` rule works best with full history, so shallow fleet scans may under-report staleness. Repos that fail to clone or scan are listed at the end of the report and never abort the run. GitHub listing works unauthenticated for public repos; pass `--token` (or set `GITHUB_TOKEN`) for private repos and higher rate limits.
+
+Fleet scanning is strictly read-only: it never opens PRs or modifies the scanned repos. Keeping configs *in sync* across repos is Phase 3 on the roadmap — [tell us how your team would use it](https://github.com/unrot-dev/unrot/issues).
+
 ## Scope
 
-v1 is read-only, single-repo static analysis. No auto-fix, no multi-repo scanning, no LLM calls. Validated against 69 real-world open-source repos for crash-freedom and false-positive rate — every error-level finding hand-verified — plus a mutation-testing harness that injects known rot into real configs (99%+ caught) and confirms the forgiveness heuristics stay quiet (188/188 clean).
+unrot is read-only static analysis — single-repo (`scan`/`check`) plus multi-repo fleet reporting. No auto-fix, no config sync (yet — see the roadmap note above), no LLM calls. Validated against 69 real-world open-source repos for crash-freedom and false-positive rate — every error-level finding hand-verified — plus a mutation-testing harness that injects known rot into real configs (99%+ caught) and confirms the forgiveness heuristics stay quiet (188/188 clean).
 
 ## License
 
