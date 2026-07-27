@@ -97,3 +97,31 @@ export interface CheckResult {
   findings: Finding[];
   summary: CheckSummary;
 }
+
+/** A = no findings, B = findings but no errors, C = 1-2 errors, D = 3+ errors, null = no configs. */
+export type HealthGrade = 'A' | 'B' | 'C' | 'D' | null;
+
+export interface FleetRepoOutcome {
+  repo: string;
+  /** Present when the repo was scanned. */
+  health?: HealthGrade;
+  summary?: CheckSummary;
+  findings?: Finding[];
+  configCount?: number;
+  /** Present when the repo failed to clone or scan. */
+  error?: string;
+}
+
+export interface FleetTotals {
+  repos: number;
+  withConfigs: number;
+  withFindings: number;
+  errors: number;
+  warnings: number;
+}
+
+export interface FleetResult {
+  target: string;
+  repos: FleetRepoOutcome[];
+  totals: FleetTotals;
+}
