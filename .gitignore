@@ -2,3 +2,4 @@ node_modules/
 dist/
 *.tgz
 .playwright-mcp/
+PROJECT_BRIEF.md
