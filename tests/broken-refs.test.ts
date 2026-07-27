@@ -239,6 +239,48 @@ describe('broken-refs', () => {
     expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
   });
 
+  it('ignores references inside HTML comments', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          '# Title\n\n<!-- Notes for maintainers:\n     See [`docs/install.md`](../../docs/install.md) for recipes. -->\n\nReal content here.\n',
+        'docs/other.md': '# other\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('reports a markdown link once, not twice for a backticked label', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'See [`docs/setup/overrides.md`](docs/setup/overrides.md) for the rationale.\n',
+        'docs/other.md': '# other\n',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+  });
+
+  it('treats YYYY_MM_DD style names as placeholders', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': '- `versions/vYYYY_MM_DD.py` — one file per release\n',
+        'versions/v2026_01_01.py': 'pass\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips paths introduced as "an example of such"', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'An example of such is `packages/ui/src/Selector.test.scenario.ts` in the repo\n',
+        'packages/ui/src/other.ts': 'export {}\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
   it('skips paths described in prospective mood', () => {
     const repo = track(
       makeRepo({

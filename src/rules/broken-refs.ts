@@ -10,7 +10,7 @@ const HEDGED_LINE = /\b(?:if|unless)\b[^;!?\n]{0,60}?\b(?:exists?|present|availa
 
 /** Metasyntactic names mark example paths, not claims (`./foo.ts`, `src/xxx/xxxService.ts`, `test_EventNameHere.py`, `YYYY-MM-DD-topic.mdx`). */
 const PLACEHOLDER =
-  /(?:^|\/)(?:foo|bar|baz|qux|quux|yyy|zzz)(?:[./]|$)|(?:^|\/)xxx[\w-]*(?:[./]|$)|(?:^|\/)(?:my|your)[-_]?(?:command|file|app|module|project|script|test|class|func\w*|component|service|dir|folder|thing|example)s?\.\w{1,8}$|Here\.\w{1,8}$|YYYY-MM-DD|(?:file|dir|folder)[-_]name\./;
+  /(?:^|\/)(?:foo|bar|baz|qux|quux|yyy|zzz)(?:[./]|$)|(?:^|\/)xxx[\w-]*(?:[./]|$)|(?:^|\/)(?:my|your)[-_]?(?:command|file|app|module|project|script|test|class|func\w*|component|service|dir|folder|thing|example)s?\.\w{1,8}$|Here\.\w{1,8}$|YYYY[-_]MM[-_]DD|(?:file|dir|folder)[-_]name\./;
 
 /** Lines that forbid creating the referenced file are not existence claims. */
 const NEGATED_CREATE = /\b(?:don'?t|do not|never|avoid)\s+(?:propos|creat|add|mak|writ)/i;
@@ -30,7 +30,7 @@ const REMOVED_LINE =
  * this repo contains. Common in skill docs, which teach patterns rather than
  * map the codebase.
  */
-const ILLUSTRATIVE = /\b(?:for example|e\.g\.|examples?\s*:)/i;
+const ILLUSTRATIVE = /\b(?:for example|an example|e\.g\.|examples?\s*:)/i;
 
 /** Conditional mood proposes a file worth creating rather than claiming one exists. */
 const PROSPECTIVE = /\bwould\s+(?:be|need|go|live|contain|include|help)\b/i;
