@@ -1,5 +1,7 @@
 # unrot
 
+[![CI](https://github.com/unrot-dev/unrot/actions/workflows/ci.yml/badge.svg)](https://github.com/unrot-dev/unrot/actions/workflows/ci.yml) [![npm](https://img.shields.io/npm/v/unrot)](https://www.npmjs.com/package/unrot) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Your agent configs rot. The repo moves on — files get renamed, scripts get replaced, conventions change — while `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, and the rest quietly keep describing a codebase that no longer exists. Every session your agents start from instructions that are stale, bloated past what models actually follow, contradictory, or pointing at files that are gone. Nothing checks them.
 
 **unrot** finds the rot: a linter for the config files that steer your AI coding agents — `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, Claude Code skills and commands, MCP configs, Copilot instructions. Pure static analysis + git: no network calls, no telemetry, no LLM calls, and it never modifies your files.
@@ -144,10 +146,23 @@ Symlinked configs (e.g. `CLAUDE.md -> AGENTS.md`, a common way to share one sour
 
 ### CI example (GitHub Actions)
 
+Copy-paste job — fails the build only on error-severity findings (exit 1):
+
 ```yaml
-- name: Lint agent configs
-  run: npx unrot check --json
+lint-agent-configs:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # full history lets the staleness rule run
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
+    - name: Lint agent configs
+      run: npx unrot check --json
 ```
+
+Tune or silence rules for CI via `.unrot.json` (see Configuration above).
 
 ## Scope
 
