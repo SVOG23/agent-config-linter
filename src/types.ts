@@ -21,6 +21,8 @@ export interface ConfigFile {
   mtimeMs: number;
   /** Prose instruction files (markdown, .cursorrules) as opposed to JSON settings. */
   isInstruction: boolean;
+  /** Other repo paths that are symlinks to this same physical file. */
+  aliases?: string[];
 }
 
 export interface Finding {

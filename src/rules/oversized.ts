@@ -16,7 +16,9 @@ export const oversized: Rule = {
 
     for (const file of ctx.files) {
       if (!file.isInstruction) continue;
-      const lineCount = ctx.read(file).split('\n').length;
+      const content = ctx.read(file);
+      // A trailing newline terminates the last line, it doesn't start a new one.
+      const lineCount = content.split('\n').length - (content.endsWith('\n') ? 1 : 0);
       const kb = (file.size / 1024).toFixed(1);
 
       if (lineCount > errorLines) {

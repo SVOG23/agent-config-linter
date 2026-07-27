@@ -41,6 +41,25 @@ describe('oversized', () => {
     expect(findings[0].message).toMatch(/KB/);
   });
 
+  it('does not count a trailing newline as an extra line', () => {
+    const repo = track(makeRepo({ 'CLAUDE.md': lines(100) + '\n' }));
+    expect(oversized.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('reports the real line count for files ending in a newline', () => {
+    const repo = track(makeRepo({ 'CLAUDE.md': lines(150) + '\n' }));
+    const findings = oversized.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].message).toMatch(/150 lines/);
+  });
+
+  it('does not error on exactly errorLines lines with a trailing newline', () => {
+    const repo = track(makeRepo({ 'AGENTS.md': lines(200) + '\n' }));
+    const findings = oversized.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].severity).toBe('warn');
+  });
+
   it('ignores non-instruction files', () => {
     const repo = track(makeRepo({ '.mcp.json': `{\n${'"k": 1,\n'.repeat(300)}"z": 1}` }));
     expect(oversized.check(makeCtx(repo.root))).toHaveLength(0);

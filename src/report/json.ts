@@ -6,6 +6,7 @@ function fileEntry(file: ConfigFile) {
     kind: file.kind,
     size: file.size,
     modified: new Date(file.mtimeMs).toISOString(),
+    ...(file.aliases ? { aliases: file.aliases } : {}),
   };
 }
 

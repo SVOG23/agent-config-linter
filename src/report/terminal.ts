@@ -1,5 +1,9 @@
 import type { Colors } from '../colors.js';
-import type { CheckResult, Finding, ScanResult, Severity } from '../types.js';
+import type { CheckResult, ConfigFile, Finding, ScanResult, Severity } from '../types.js';
+
+function aliasNote(file: ConfigFile | undefined): string {
+  return file?.aliases ? ` (also linked as ${file.aliases.join(', ')})` : '';
+}
 
 function formatSize(bytes: number): string {
   return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
@@ -18,7 +22,7 @@ export function renderScanText(result: ScanResult, c: Colors): string {
   for (const file of result.files) {
     lines.push(
       `  ${file.path.padEnd(width)}  ${c.dim(
-        `${file.kind}  ${formatSize(file.size).padStart(8)}  modified ${formatDate(file.mtimeMs)}`,
+        `${file.kind}  ${formatSize(file.size).padStart(8)}  modified ${formatDate(file.mtimeMs)}${aliasNote(file)}`,
       )}`,
     );
   }
@@ -59,8 +63,10 @@ export function renderCheckText(result: CheckResult, c: Colors): string {
     groups.set(key, list);
   }
 
+  const byPath = new Map(result.files.map((f) => [f.path, f]));
   for (const [file, findings] of groups) {
-    lines.push(c.bold(file));
+    const note = aliasNote(byPath.get(file));
+    lines.push(note ? c.bold(file) + c.dim(note) : c.bold(file));
     for (const finding of findings) lines.push(...renderFinding(finding, c));
     lines.push('');
   }

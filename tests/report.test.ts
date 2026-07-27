@@ -1,3 +1,5 @@
+import { symlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { colorize } from '../src/colors.js';
 import { renderCheckJson, renderScanJson } from '../src/report/json.js';
@@ -43,6 +45,25 @@ describe('terminal output', () => {
     expect(text).toMatch(/no issues found/i);
   });
 
+  it('reports symlinked configs once, with an alias note', () => {
+    const body = Array.from({ length: 150 }, (_, i) => `- rule ${i}`).join('\n') + '\n';
+    const repo = track(makeRepo({ 'AGENTS.md': body }, { git: true }));
+    symlinkSync('AGENTS.md', join(repo.root, 'CLAUDE.md'));
+    const result = runCheck(repo.root);
+    expect(result.findings).toHaveLength(1);
+    expect(result.findings[0].file).toBe('AGENTS.md');
+    const text = renderCheckText(result, plain);
+    expect(text).toContain('AGENTS.md (also linked as CLAUDE.md)');
+  });
+
+  it('notes aliases in the scan listing', () => {
+    const repo = track(makeRepo({ 'AGENTS.md': '# hi\n' }, { git: true }));
+    symlinkSync('AGENTS.md', join(repo.root, 'CLAUDE.md'));
+    const text = renderScanText(runScan(repo.root), plain);
+    expect(text).toContain('also linked as CLAUDE.md');
+    expect(text).toMatch(/1 file\b/);
+  });
+
   it('lists scanned files with size and date', () => {
     const repo = track(makeRepo({ 'CLAUDE.md': '# hi\n' }));
     const text = renderScanText(runScan(repo.root), plain);
@@ -66,6 +87,14 @@ describe('json output', () => {
       line: 1,
     });
     expect(parsed.summary).toEqual({ errors: 1, warnings: 0, infos: 0 });
+  });
+
+  it('dedupes symlinked configs in the files array and lists aliases', () => {
+    const repo = track(makeRepo({ 'AGENTS.md': '# hi\n' }, { git: true }));
+    symlinkSync('AGENTS.md', join(repo.root, 'CLAUDE.md'));
+    const parsed = JSON.parse(renderCheckJson(runCheck(repo.root)));
+    expect(parsed.files).toHaveLength(1);
+    expect(parsed.files[0]).toMatchObject({ path: 'AGENTS.md', aliases: ['CLAUDE.md'] });
   });
 
   it('emits a scan schema', () => {

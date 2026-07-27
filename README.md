@@ -32,11 +32,11 @@ A real run on [cline/cline](https://github.com/cline/cline):
 $ npx unrot check
 
 .claude/commands/hotfix-release.md
-  ⚠ 188 lines (warn threshold: 100) — long instruction files get partially ignored (oversized)
+  ⚠ 187 lines (warn threshold: 100) — long instruction files get partially ignored (oversized)
     → Tighten wording and move rarely-needed detail into referenced docs
 
 sdk/AGENTS.md
-  ⚠ 110 lines (warn threshold: 100) — long instruction files get partially ignored (oversized)
+  ⚠ 109 lines (warn threshold: 100) — long instruction files get partially ignored (oversized)
     → Tighten wording and move rarely-needed detail into referenced docs
   ✖ Referenced path "./DOC.md" does not exist in the repo:9 (broken-refs)
     → Fix the path or delete the stale reference
@@ -135,6 +135,8 @@ Create `.unrot.json` at the repo root to tune thresholds, change severities, or 
 ```
 
 `file` is `null` for repo-level findings (e.g. `missing-config`).
+
+Symlinked configs (e.g. `CLAUDE.md -> AGENTS.md`, a common way to share one source of truth across agent tools) are linted once: the entry for the real file carries an `"aliases"` array with the other paths, and terminal output notes them as `(also linked as CLAUDE.md)`.
 
 ### CI example (GitHub Actions)
 

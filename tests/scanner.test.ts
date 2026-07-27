@@ -1,3 +1,5 @@
+import { symlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { scan } from '../src/scanner.js';
 import { makeRepo, type FixtureRepo } from './helpers.js';
@@ -90,6 +92,22 @@ describe('scan', () => {
     const paths = Object.keys(kinds(repo.root));
     expect(paths).toContain('CLAUDE.md');
     expect(paths).not.toContain('ignored-dir/CLAUDE.md');
+  });
+
+  it('dedupes symlinked config files onto one physical file', () => {
+    const repo = track(makeRepo({ 'AGENTS.md': '# canonical' }, { git: true }));
+    symlinkSync('AGENTS.md', join(repo.root, 'CLAUDE.md'));
+    const result = scan(repo.root);
+    expect(result.files.map((f) => f.path)).toEqual(['AGENTS.md']);
+    expect(result.files[0].aliases).toEqual(['CLAUDE.md']);
+  });
+
+  it('keeps the alphabetically first path even when it is the symlink', () => {
+    const repo = track(makeRepo({ 'CLAUDE.md': '# canonical' }, { git: true }));
+    symlinkSync('CLAUDE.md', join(repo.root, 'AGENTS.md'));
+    const result = scan(repo.root);
+    expect(result.files.map((f) => f.path)).toEqual(['AGENTS.md']);
+    expect(result.files[0].aliases).toEqual(['CLAUDE.md']);
   });
 
   it('finds nested tool directories in monorepos', () => {

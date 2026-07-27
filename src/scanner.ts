@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync, realpathSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { gitListFiles } from './git.js';
 import type { ConfigFile, ConfigFileKind } from './types.js';
@@ -116,5 +116,25 @@ export function scan(root: string): ScanOutput {
   }
 
   files.sort((a, b) => a.path.localeCompare(b.path));
-  return { files, repoFiles };
+
+  // Symlinked configs (e.g. CLAUDE.md -> AGENTS.md) are one physical file;
+  // keep the first path and record the rest as aliases so it lints once.
+  const byRealPath = new Map<string, ConfigFile>();
+  const deduped: ConfigFile[] = [];
+  for (const file of files) {
+    let realPath = file.absPath;
+    try {
+      realPath = realpathSync(file.absPath);
+    } catch {
+      // keep absPath; the file was stat-able above, so this is unlikely
+    }
+    const existing = byRealPath.get(realPath);
+    if (existing) {
+      (existing.aliases ??= []).push(file.path);
+    } else {
+      byRealPath.set(realPath, file);
+      deduped.push(file);
+    }
+  }
+  return { files: deduped, repoFiles };
 }
