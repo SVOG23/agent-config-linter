@@ -29,6 +29,29 @@ describe('contradictions', () => {
     expect(byFile.get('CLAUDE.md')!.line).toBe(2);
   });
 
+  it('ignores claims inside fenced code blocks', () => {
+    expect(
+      check({
+        'CLAUDE.md': 'Setup:\n```bash\n# on legacy CI we use npm install\n```\n',
+        'AGENTS.md': 'Always use pnpm for installs\n',
+      }),
+    ).toHaveLength(0);
+  });
+
+  it('requires definitional context for commit-convention claims', () => {
+    expect(
+      check({
+        'CLAUDE.md': 'Also get the commit messages already on the tag before releasing\n',
+        'AGENTS.md': 'This preserves the original commit message verbatim\n',
+      }),
+    ).toHaveLength(0);
+    const findings = check({
+      'CLAUDE.md': 'Commit message format: conventional commits\n',
+      'AGENTS.md': 'Keep commit messages concise, no co-author lines\n',
+    });
+    expect(findings).toHaveLength(2);
+  });
+
   it('stays quiet when files agree', () => {
     expect(
       check({

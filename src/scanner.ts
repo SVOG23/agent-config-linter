@@ -34,7 +34,12 @@ export function classify(path: string): Classification | null {
     return { kind: 'claude-md', isInstruction: true };
   }
   if (base === 'AGENTS.md') return { kind: 'agents-md', isInstruction: true };
+  if (base === 'GEMINI.md') return { kind: 'gemini-md', isInstruction: true };
   if (base === '.cursorrules') return { kind: 'cursorrules', isInstruction: true };
+  if (base === '.clinerules') return { kind: 'clinerules', isInstruction: true };
+  if (base === '.windsurfrules') return { kind: 'windsurfrules', isInstruction: true };
+  if (base === '.rules') return { kind: 'zed-rules', isInstruction: true };
+  if (base === '.goosehints') return { kind: 'goosehints', isInstruction: true };
   if (base === '.mcp.json') return { kind: 'mcp-config', isInstruction: false };
 
   for (let i = 0; i < segments.length - 1; i++) {
@@ -58,6 +63,19 @@ export function classify(path: string): Classification | null {
     }
     if (segments[i] === '.github' && base === 'copilot-instructions.md') {
       return { kind: 'copilot-instructions', isInstruction: true };
+    }
+    if (
+      segments[i] === '.github' &&
+      segments[i + 1] === 'instructions' &&
+      base.endsWith('.instructions.md')
+    ) {
+      return { kind: 'copilot-instruction', isInstruction: true };
+    }
+    if (segments[i] === '.agents' && segments[i + 1] === 'skills' && base === 'SKILL.md') {
+      return { kind: 'agent-skill', isInstruction: true };
+    }
+    if (segments[i] === '.clinerules' && i < segments.length - 1 && base.endsWith('.md')) {
+      return { kind: 'clinerules', isInstruction: true };
     }
   }
   return null;

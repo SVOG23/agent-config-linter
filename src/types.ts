@@ -3,13 +3,20 @@ export type Severity = 'error' | 'warn' | 'info';
 export type ConfigFileKind =
   | 'claude-md'
   | 'agents-md'
+  | 'gemini-md'
   | 'cursorrules'
   | 'cursor-rule'
+  | 'clinerules'
+  | 'windsurfrules'
+  | 'zed-rules'
+  | 'goosehints'
   | 'claude-skill'
+  | 'agent-skill'
   | 'claude-settings'
   | 'claude-command'
   | 'mcp-config'
-  | 'copilot-instructions';
+  | 'copilot-instructions'
+  | 'copilot-instruction';
 
 export interface ConfigFile {
   /** Path relative to the scanned root, posix separators. */

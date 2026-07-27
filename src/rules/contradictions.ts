@@ -1,4 +1,5 @@
 import type { Finding, Rule, Severity } from '../types.js';
+import { stripFencedBlocks } from './refs.js';
 
 interface Claim {
   file: string;
@@ -54,7 +55,12 @@ const TOPICS: Topic[] = [
     mode: 'duplicate',
     severity: 'info',
     extract(text, line, file) {
-      if (/\bcommit (?:message|convention|format)s?\b|\bconventional commits?\b/i.test(text)) {
+      if (/\bconventional commits?\b/i.test(text)) return { file, line, value: 'commit-style' };
+      // Bare mentions ("get the commit messages on the tag") are not definitions.
+      if (
+        /\bcommit (?:message|convention|format)s?\b/i.test(text) &&
+        /\b(?:use|follow|format|convention|prefix|style|must|should|avoid|keep|write|concise|start with|begin with)\b/i.test(text)
+      ) {
         return { file, line, value: 'commit-style' };
       }
       return null;
@@ -77,7 +83,7 @@ export const contradictions: Rule = {
       const claims = new Map<string, Claim>();
       for (const file of ctx.files) {
         if (!file.isInstruction) continue;
-        const lines = ctx.read(file).split('\n');
+        const lines = stripFencedBlocks(ctx.read(file)).split('\n');
         for (let i = 0; i < lines.length; i++) {
           const claim = topic.extract(lines[i], i + 1, file.path);
           if (claim) {

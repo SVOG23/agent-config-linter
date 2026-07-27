@@ -298,6 +298,57 @@ describe('broken-refs', () => {
     expect(findings[0].suggestion).not.toContain('index.ts');
   });
 
+  it('parses angle-bracket markdown link destinations', () => {
+    const refs = extractRefs('[Workflows](<docs/my dir/workflows.md>) and [x](<docs/plain.md>)\n');
+    expect(refs.filter((r) => r.kind === 'md-link').map((r) => r.value)).toEqual([
+      'docs/my dir/workflows.md',
+      'docs/plain.md',
+    ]);
+  });
+
+  it('skips single-letter script placeholders like `bun run X`', () => {
+    const repo = track(
+      makeRepo({
+        'CLAUDE.md': 'Emit `bun run X` commands, never npx\n',
+        'package.json': JSON.stringify({ scripts: { build: 'x' } }),
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips GitHub web paths like ../blob/master/CONTRIBUTING.md', () => {
+    const repo = track(
+      makeRepo({
+        'packages/tools/AGENTS.md':
+          'Per our [contributing guide](../blob/master/CONTRIBUTING.md), thanks!\n',
+        'src/app.ts': 'x',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips refs on lines that forbid creating the file', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': "Don't propose `src/skills/INDEX.md` or prefix renames\n",
+        'src/app.ts': 'x',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips extended placeholder shapes (my*/xxx* names, date templates, file_name)', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          'Add `src/shell/mycommand.go`\nCreate `src/services/xxxService.ts`\nWrite `docs/changelog/YYYY-MM-DD-topic.mdx`\nSee `src/migrations/0046_meaningless_file_name.sql`\n',
+        'src/app.ts': 'x',
+        'docs/index.md': 'x',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
   it('skips placeholder paths that were never real claims', () => {
     const repo = track(
       makeRepo({

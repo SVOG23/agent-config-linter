@@ -55,7 +55,7 @@ From a validation run across 69 popular open-source repos (Next.js, VS Code, Rea
 - **sst/opencode** — a committed `AGENTS.md` tells agents to verify against `/Users/kit/code/...`, a path that exists on exactly one maintainer's laptop.
 - **langchain-ai/langchainjs** — ships an `AGENTS.md` over 400 lines long, well past where models reliably follow every rule.
 - **BerriAI/litellm** — `@`-imports an 11.8KB `CLAUDE.md` into every session, from two separate files.
-- **47 of the 69** repos had agent configs at all; **35 of those 47** had findings.
+- **49 of the 69** repos had agent configs at all; **36 of those 49** had findings.
 
 These were shallow clones, so the `staleness` rule — which needs full git history — never ran. A full clone would likely surface more, not less.
 
@@ -76,7 +76,7 @@ unrot check [path] [--json] [--no-color] [--config <file>] [--rules <a,b>]
 
 `scan` discovers, at any depth (monorepos included, `.gitignore` respected):
 
-`CLAUDE.md` / `CLAUDE.local.md` · `AGENTS.md` · `.cursorrules` · `.cursor/rules/**` · `.claude/skills/**/SKILL.md` · `.claude/settings.json` · `.claude/commands/**/*.md` · `.mcp.json` · `.github/copilot-instructions.md`
+`CLAUDE.md` / `CLAUDE.local.md` · `AGENTS.md` · `GEMINI.md` · `.cursorrules` · `.cursor/rules/**` · `.clinerules` (file or folder) · `.windsurfrules` · `.rules` (zed) · `.goosehints` · `.agents/skills/**/SKILL.md` · `.claude/skills/**/SKILL.md` · `.claude/settings.json` · `.claude/commands/**/*.md` · `.mcp.json` · `.github/copilot-instructions.md` · `.github/instructions/*.instructions.md`
 
 `check` runs these rules:
 

@@ -94,6 +94,47 @@ describe('scan', () => {
     expect(paths).not.toContain('ignored-dir/CLAUDE.md');
   });
 
+  it('classifies GEMINI.md, .rules, .goosehints, .windsurfrules, agent skills, and copilot path instructions', () => {
+    const repo = track(
+      makeRepo({
+        'GEMINI.md': '# gemini',
+        'packages/api/GEMINI.md': '# nested',
+        '.rules': 'rules',
+        '.goosehints': 'hints',
+        '.windsurfrules': 'rules',
+        '.agents/skills/deploy/SKILL.md': '# skill',
+        '.agents/skills/deploy/reference.md': 'not a skill entrypoint',
+        '.github/instructions/db.instructions.md': '# scoped',
+        '.github/instructions/readme.md': 'not an instructions file',
+      }),
+    );
+    expect(kinds(repo.root)).toEqual({
+      'GEMINI.md': 'gemini-md',
+      'packages/api/GEMINI.md': 'gemini-md',
+      '.rules': 'zed-rules',
+      '.goosehints': 'goosehints',
+      '.windsurfrules': 'windsurfrules',
+      '.agents/skills/deploy/SKILL.md': 'agent-skill',
+      '.github/instructions/db.instructions.md': 'copilot-instruction',
+    });
+  });
+
+  it('classifies .clinerules as a file or a directory of markdown', () => {
+    const asFile = track(makeRepo({ '.clinerules': 'rules' }));
+    expect(kinds(asFile.root)).toEqual({ '.clinerules': 'clinerules' });
+    const asDir = track(
+      makeRepo({ '.clinerules/overview.md': '# o', '.clinerules/notes.txt': 'skip' }),
+    );
+    expect(kinds(asDir.root)).toEqual({ '.clinerules/overview.md': 'clinerules' });
+  });
+
+  it('marks the new conventions as instruction files', () => {
+    const repo = track(makeRepo({ 'GEMINI.md': '# g', '.rules': 'r' }));
+    const byPath = new Map(scan(repo.root).files.map((f) => [f.path, f]));
+    expect(byPath.get('GEMINI.md')!.isInstruction).toBe(true);
+    expect(byPath.get('.rules')!.isInstruction).toBe(true);
+  });
+
   it('only classifies markdown files under .cursor/rules', () => {
     const repo = track(
       makeRepo({

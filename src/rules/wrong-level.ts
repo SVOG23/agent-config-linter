@@ -1,4 +1,5 @@
 import type { Finding, Rule } from '../types.js';
+import { stripFencedBlocks } from './refs.js';
 
 interface Pattern {
   regex: RegExp;
@@ -36,7 +37,9 @@ export const wrongLevel: Rule = {
       const base = file.path.slice(file.path.lastIndexOf('/') + 1);
       if (base.includes('.local.')) continue; // already a user-local file
 
-      ctx.read(file)
+      // Fenced blocks hold example transcripts and decision trees, not the
+      // file's own voice; inline spans still count (paths get backticked).
+      stripFencedBlocks(ctx.read(file))
         .split('\n')
         .forEach((text, index) => {
           for (const pattern of PATTERNS) {

@@ -28,6 +28,18 @@ describe('wrong-level', () => {
     expect(check('Open C:\\Users\\bob\\dev\\proj\n')).toHaveLength(1);
   });
 
+  it('ignores personal-preference phrasing inside fenced blocks (decision trees, examples)', () => {
+    const findings = check(
+      'Pick a mode:\n```\n├─ I want full control\n├─ I want built-in tools\n```\nUse tabs.\n',
+    );
+    expect(findings).toHaveLength(0);
+  });
+
+  it('still flags personal content in inline code spans', () => {
+    const findings = check('The backend dep lives at `/home/danny/agentus` for reference\n');
+    expect(findings).toHaveLength(1);
+  });
+
   it('ignores CI-runner and generic example home paths', () => {
     expect(check('cd /home/runner/work/repo/repo/python\n')).toHaveLength(0);
     expect(check('Assume checkout at /home/user/project/ layout\n')).toHaveLength(0);

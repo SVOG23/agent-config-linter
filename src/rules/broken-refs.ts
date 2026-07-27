@@ -8,8 +8,12 @@ import { extractRefs, type ExtractedRef } from './refs.js';
 /** Lines that admit the target may be absent ("read X, if it exists", "unless the file already exists"). */
 const HEDGED_LINE = /\b(?:if|unless)\b[^;!?\n]{0,60}?\b(?:exists?|present|available)\b/i;
 
-/** Metasyntactic names mark example paths, not claims (`./foo.ts`, `src/xxx/xxx.feature`, `test_EventNameHere.py`). */
-const PLACEHOLDER = /(?:^|\/)(?:foo|bar|baz|qux|quux|xxx|yyy|zzz)(?:[./]|$)|Here\.\w{1,8}$/;
+/** Metasyntactic names mark example paths, not claims (`./foo.ts`, `src/xxx/xxxService.ts`, `test_EventNameHere.py`, `YYYY-MM-DD-topic.mdx`). */
+const PLACEHOLDER =
+  /(?:^|\/)(?:foo|bar|baz|qux|quux|yyy|zzz)(?:[./]|$)|(?:^|\/)xxx[\w-]*(?:[./]|$)|(?:^|\/)(?:my|your)[-_]?(?:command|file|app|module|project|script|test|class|func\w*|component|service|dir|folder|thing|example)s?\.\w{1,8}$|Here\.\w{1,8}$|YYYY-MM-DD|(?:file|dir|folder)[-_]name\./;
+
+/** Lines that forbid creating the referenced file are not existence claims. */
+const NEGATED_CREATE = /\b(?:don'?t|do not|never|avoid)\s+(?:propos|creat|add|mak|writ)/i;
 
 /** True when git would ignore this path — expected to be absent from a fresh clone. */
 function isGitIgnored(root: string, relPath: string): boolean {
@@ -117,7 +121,9 @@ export const brokenRefs: Rule = {
     const isBroken = (ref: ExtractedRef, fileDir: string, lineText: string): boolean => {
       const cleaned = ref.value.replace(/^\//, '');
       if (isConfigLocationMention(cleaned)) return false;
-      if (HEDGED_LINE.test(lineText)) return false;
+      if (HEDGED_LINE.test(lineText) || NEGATED_CREATE.test(lineText)) return false;
+      // GitHub web-path fragments (../blob/master/...) are URLs, not repo paths.
+      if (/(?:^|\/)blob\/(?:master|main|HEAD|v?\d[\w.-]*)\//.test(cleaned)) return false;
       // .env files are created at setup time and gitignored by design.
       if (/^\.env(\..+)?$/.test(cleaned.slice(cleaned.lastIndexOf('/') + 1))) return false;
       if (PLACEHOLDER.test(cleaned)) return false;
@@ -164,6 +170,7 @@ export const brokenRefs: Rule = {
         if (seen.has(key)) continue;
 
         if (ref.kind === 'npm-script') {
+          if (/^[A-Za-z]$/.test(ref.value)) continue; // `bun run X` placeholders
           if (scripts === undefined) scripts = collectScripts(ctx);
           if (scripts === null) continue;
           // `npm run watch:` (from prose like "npm run watch:*") names a family.
