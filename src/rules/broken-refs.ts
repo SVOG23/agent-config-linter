@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join, posix } from 'node:path';
 import { classify, SKIP_DIRS } from '../scanner.js';
 import type { Finding, Rule, RuleContext } from '../types.js';
-import { extractRefs, type ExtractedRef } from './refs.js';
+import { extractRefs, fencedBlocks, type ExtractedRef } from './refs.js';
 
 /** Lines that admit the target may be absent ("read X, if it exists", "unless the file already exists"). */
 const HEDGED_LINE = /\b(?:if|unless)\b[^;!?\n]{0,60}?\b(?:exists?|present|available)\b/i;
@@ -23,6 +23,17 @@ const NEGATED_CREATE = /\b(?:don'?t|do not|never|avoid)\s+(?:propos|creat|add|ma
  */
 const REMOVED_LINE =
   /\b(?:was|were|is|are|has been|have been|had been|got)\s+(?:since\s+|recently\s+|just\s+)?(?:removed|deleted|dropped|retired)\b|\bno longer\b|\bobsolete\b/i;
+
+/**
+ * Paths offered as illustrations ("Examples: `references/finance.md` for
+ * schemas", "For example, a hook lives in ...") describe a shape, not a file
+ * this repo contains. Common in skill docs, which teach patterns rather than
+ * map the codebase.
+ */
+const ILLUSTRATIVE = /\b(?:for example|e\.g\.|examples?\s*:)/i;
+
+/** Conditional mood proposes a file worth creating rather than claiming one exists. */
+const PROSPECTIVE = /\bwould\s+(?:be|need|go|live|contain|include|help)\b/i;
 
 /** True when git would ignore this path — expected to be absent from a fresh clone. */
 function isGitIgnored(root: string, relPath: string): boolean {
@@ -45,6 +56,31 @@ function isConfigLocationMention(cleaned: string): boolean {
 }
 
 const MAX_PACKAGE_JSON_PARSES = 500;
+
+/**
+ * Script names the instruction file defines itself, in a fenced package.json
+ * snippet. Setup docs routinely show the scripts a reader is meant to create
+ * and then invoke them; those are instructions, not stale references.
+ */
+function scriptsDefinedInDoc(content: string): Set<string> {
+  const defined = new Set<string>();
+  for (const block of fencedBlocks(content)) {
+    const opening = /"scripts"\s*:\s*\{/.exec(block);
+    if (!opening) continue;
+    const start = opening.index + opening[0].length;
+    let depth = 1;
+    let end = start;
+    while (end < block.length && depth > 0) {
+      if (block[end] === '{') depth++;
+      else if (block[end] === '}') depth--;
+      end++;
+    }
+    for (const key of block.slice(start, end - 1).matchAll(/"([\w:.-]+)"\s*:/g)) {
+      defined.add(key[1]!);
+    }
+  }
+  return defined;
+}
 
 /** Every directory path implied by the repo file list. */
 function collectDirs(repoFiles: Set<string>): Set<string> {
@@ -132,6 +168,9 @@ export const brokenRefs: Rule = {
       if (isConfigLocationMention(cleaned)) return false;
       if (HEDGED_LINE.test(lineText) || NEGATED_CREATE.test(lineText) || REMOVED_LINE.test(lineText))
         return false;
+      // Emphasis markers sit between the keyword and its colon: `- **Examples**:`.
+      if (ILLUSTRATIVE.test(lineText.replace(/[*_]/g, ''))) return false;
+      if (PROSPECTIVE.test(lineText)) return false;
       // GitHub web-path fragments (../blob/master/...) are URLs, not repo paths.
       if (/(?:^|\/)blob\/(?:master|main|HEAD|v?\d[\w.-]*)\//.test(cleaned)) return false;
       // .env files are created at setup time and gitignored by design.
@@ -174,6 +213,7 @@ export const brokenRefs: Rule = {
       const seen = new Set<string>();
       const content = ctx.read(file);
       const lines = content.split('\n');
+      let localScripts: Set<string> | undefined;
 
       for (const ref of extractRefs(content)) {
         const key = `${ref.kind}:${ref.value}`;
@@ -181,6 +221,8 @@ export const brokenRefs: Rule = {
 
         if (ref.kind === 'npm-script') {
           if (/^[A-Za-z]$/.test(ref.value)) continue; // `bun run X` placeholders
+          localScripts ??= scriptsDefinedInDoc(content);
+          if (localScripts.has(ref.value)) continue;
           if (scripts === undefined) scripts = collectScripts(ctx);
           if (scripts === null) continue;
           // `npm run watch:` (from prose like "npm run watch:*") names a family.

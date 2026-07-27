@@ -227,6 +227,78 @@ describe('broken-refs', () => {
     expect(findings[0]!.message).toContain('src/temp-workaround.ts');
   });
 
+  it('skips paths introduced as illustrative examples', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          '- **Examples**: `references/finance.md` for schemas, `assets/logo.png` for brand assets\n- Example: `content/releases/1.9.0.mdx`\nFor example, an init hook lives in `src/Hooks/Init/Auth.php`\ne.g. `scripts/rotate_pdf.py` for rotation tasks\n',
+        'references/other.md': '# other\n',
+        'src/index.ts': 'export {}\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips paths described in prospective mood', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          'A `scripts/rotate_pdf.py` script would be helpful to store in the skill\nA `references/schema.md` file documenting the tables would be useful here\n',
+        'scripts/other.py': 'pass\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('still flags a plain reference on a line without example framing', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'Schemas live in `references/finance.md`\n',
+        'references/other.md': '# other\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(1);
+  });
+
+  it('accepts npm scripts the doc itself defines in a fenced package.json', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': [
+          'Add build scripts to `package.json`:',
+          '',
+          '```json',
+          '{',
+          '  "scripts": {',
+          '    "build:ui": "vite build",',
+          '    "serve": "tsx server.ts"',
+          '  }',
+          '}',
+          '```',
+          '',
+          'Then run:',
+          '',
+          '```bash',
+          'npm run build:ui && npm run serve',
+          '```',
+        ].join('\n'),
+        'package.json': '{"scripts": {"test": "vitest"}}',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('still flags scripts that are neither defined in the doc nor in package.json', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': '```bash\nnpm run deploy:prod\n```\n',
+        'package.json': '{"scripts": {"test": "vitest"}}',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain('deploy:prod');
+  });
+
   it('accepts npm scripts defined in any workspace package.json', () => {
     const repo = track(
       makeRepo({
