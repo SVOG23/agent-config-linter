@@ -46,6 +46,14 @@ describe('extractRefs', () => {
     const scripts = refs.filter((r) => r.kind === 'npm-script').map((r) => r.value);
     expect(scripts).toEqual(['build:prod', 'lint']);
   });
+
+  it('skips flags after run and ellipsis pseudo-paths', () => {
+    const refs = extractRefs(
+      'Use `pnpm run --filter app build`\nEdit `webview-ui/.../utils.ts` as needed\n',
+    );
+    expect(refs.filter((r) => r.kind === 'npm-script')).toHaveLength(0);
+    expect(refs.filter((r) => r.kind === 'path-token')).toHaveLength(0);
+  });
 });
 
 describe('broken-refs', () => {
@@ -75,11 +83,90 @@ describe('broken-refs', () => {
 
   it('errors on broken markdown links and backtick paths', () => {
     const repo = track(
-      makeRepo({ 'AGENTS.md': '[setup](docs/setup.md)\nRun `scripts/gone.sh`\n' }),
+      makeRepo({
+        'AGENTS.md': '[setup](docs/setup.md)\nRun `scripts/gone.sh`\n',
+        'scripts/other.sh': '#!/bin/sh',
+      }),
     );
     const findings = brokenRefs.check(makeCtx(repo.root));
     expect(findings).toHaveLength(2);
     expect(findings.map((f) => f.line)).toEqual([1, 2]);
+  });
+
+  it('forgives paths that exist deeper in the monorepo (context-relative prose)', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'The dev server lives in `src/cli/dev.ts`\n',
+        'packages/next/src/cli/dev.ts': 'code',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips unanchored tokens like repo slugs and package specifiers', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'PRs belong to `vercel/next.js` and use `react-dom/server.edge`\n',
+        'src/app.ts': 'code',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('still flags anchored missing paths', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'Start with `src/gone.ts`\n',
+        'src/app.ts': 'code',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].message).toContain('src/gone.ts');
+  });
+
+  it('skips references into build-output directories', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'Bundling produces `dist/extension.js`\n',
+        'src/app.ts': 'code',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips mentions of agent-config locations and local-only files', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          'Settings order:\n- `.claude/settings.json` (project)\n- `.continue/settings.local.json` (local)\n- `.claude/CLAUDE.md`\n',
+        '.claude/skills/x/SKILL.md': '# skill',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips references hedged with "if exists"', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'Read `docs/EXTRA.md` (if exists) before starting\n',
+        'docs/other.md': '# other',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('accepts npm scripts defined in any workspace package.json', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'Run `npm run build` then `npm run nowhere`\n',
+        'package.json': JSON.stringify({ scripts: { test: 'vitest' } }),
+        'packages/app/package.json': JSON.stringify({ scripts: { build: 'tsc' } }),
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].message).toContain('nowhere');
   });
 
   it('checks npm scripts against root package.json', () => {

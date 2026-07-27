@@ -91,6 +91,13 @@ export const contradictions: Rule = {
       const all = [...claims.values()];
       const distinctValues = new Set(all.map((c) => c.value));
       if (topic.mode === 'conflict' && distinctValues.size < 2) continue;
+      if (topic.mode === 'duplicate') {
+        // Byte-identical mirrors (CLAUDE.md == AGENTS.md == .cursorrules) are a
+        // deliberate sync pattern, not an accidental duplication.
+        const filesByPath = new Map(ctx.files.map((f) => [f.path, f]));
+        const contents = new Set(all.map((c) => ctx.read(filesByPath.get(c.file)!)));
+        if (contents.size < 2) continue;
+      }
 
       for (const claim of all) {
         const others = all.filter((c) => c.file !== claim.file);

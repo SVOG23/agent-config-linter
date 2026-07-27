@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { gitListFiles } from './git.js';
 import type { ConfigFile, ConfigFileKind } from './types.js';
 
-const SKIP_DIRS = new Set([
+export const SKIP_DIRS = new Set([
   'node_modules',
   '.git',
   'dist',

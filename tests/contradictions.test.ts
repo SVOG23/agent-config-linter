@@ -81,4 +81,15 @@ describe('contradictions', () => {
       }),
     ).toHaveLength(0);
   });
+
+  it('does not flag byte-identical mirror files (deliberate sync)', () => {
+    const content = '# Rules\nUse conventional commits.\n';
+    expect(
+      check({
+        'CLAUDE.md': content,
+        'AGENTS.md': content,
+        '.cursorrules': content,
+      }),
+    ).toHaveLength(0);
+  });
 });

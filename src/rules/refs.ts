@@ -38,7 +38,10 @@ function isPathToken(token: string): boolean {
   if (!token.includes('/')) return false;
   const segments = token.split('/');
   const valid = segments.every(
-    (s) => s === '.' || s === '..' || (/^[\w.-]+$/.test(s) && s.length > 0),
+    (s) =>
+      s === '.' ||
+      s === '..' ||
+      (/^[\w.-]+$/.test(s) && s.length > 0 && !/^\.{3,}$/.test(s)), // "..." is prose ellipsis
   );
   if (!valid) return false;
   return EXTENSION.test(segments[segments.length - 1]);
@@ -70,6 +73,7 @@ export function extractRefs(content: string): ExtractedRef[] {
     }
 
     for (const match of text.matchAll(NPM_SCRIPT)) {
+      if (match[1].startsWith('-')) continue; // `pnpm run --filter app build` etc.
       refs.push({ kind: 'npm-script', value: match[1], line });
     }
   });
