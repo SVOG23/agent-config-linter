@@ -24,6 +24,37 @@ Or install it: `npm i -D unrot`, then run `unrot` (or `agent-config-linter` — 
 
 > Not affiliated with the separate `agentlint` npm package.
 
+## Sample output
+
+A real run on [cline/cline](https://github.com/cline/cline):
+
+```
+$ npx unrot check
+
+.claude/commands/hotfix-release.md
+  ⚠ 188 lines (warn threshold: 100) — long instruction files get partially ignored (oversized)
+    → Tighten wording and move rarely-needed detail into referenced docs
+
+sdk/AGENTS.md
+  ⚠ 110 lines (warn threshold: 100) — long instruction files get partially ignored (oversized)
+    → Tighten wording and move rarely-needed detail into referenced docs
+  ✖ Referenced path "./DOC.md" does not exist in the repo:9 (broken-refs)
+    → Fix the path or delete the stale reference
+
+1 error, 2 warnings
+```
+
+## Found in the wild
+
+From a validation run across 20 popular open-source repos:
+
+- **openai/codex** — `AGENTS.md:35` tells agents to use `codex-rs/codex-mcp/src/mcp_connection_manager.rs`, which isn't in the repo.
+- **langchain-ai/langchainjs** — ships an `AGENTS.md` over 400 lines long, well past where models reliably follow every rule.
+- **BerriAI/litellm** — `@`-imports an 11.8KB `CLAUDE.md` into every session, from two separate files.
+- **12 of the 20** repos had agent configs at all; **9 of those 12** had findings.
+
+These were shallow clones, so the `staleness` rule — which needs full git history — never ran. A full clone would likely surface more, not less.
+
 ## Commands
 
 ```
@@ -78,8 +109,6 @@ Create `.unrot.json` at the repo root to tune thresholds, change severities, or 
 - `--rules staleness,oversized` runs only the listed rules, ignoring enabled/disabled state.
 - `--config path/to/file.json` points at an alternative config file.
 
-Thresholds: `staleness.maxAgeDays`, `staleness.minCommitsSince`, `missing-config.minCommits`, `missing-config.minSourceFiles`, `oversized.warnLines`, `oversized.errorLines`, `oversized.warnBytes`, `eager-embeds.maxEmbedBytes`.
-
 ## JSON output
 
 `--json` prints a stable schema for CI:
@@ -105,7 +134,7 @@ Thresholds: `staleness.maxAgeDays`, `staleness.minCommitsSince`, `missing-config
 }
 ```
 
-`file` is `null` for repo-level findings (e.g. `missing-config`). `kind` is one of: `claude-md`, `agents-md`, `cursorrules`, `cursor-rule`, `claude-skill`, `claude-settings`, `claude-command`, `mcp-config`, `copilot-instructions`.
+`file` is `null` for repo-level findings (e.g. `missing-config`).
 
 ### CI example (GitHub Actions)
 
