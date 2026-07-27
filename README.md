@@ -50,7 +50,7 @@ sdk/AGENTS.md
 
 ## Found in the wild
 
-From a validation run across 69 popular open-source repos (Next.js, VS Code, React, Django, prisma, storybook, supabase, zed, ollama, cline, codex, OpenHands, ...), with every error-level finding hand-verified against the repo:
+From a validation run across 69 popular open-source repos (Next.js, VS Code, React, Django, prisma, storybook, supabase, zed, ollama, cline, codex, OpenHands, ...), with every error-level finding individually verified against the repo:
 
 - **microsoft/vscode** — the Copilot extension's `AGENTS.md` references four source files that no longer exist; for one, unrot spots the file's new location: *Did you mean "...common/skillConfigLocations.ts"?*
 - **openai/codex** — `AGENTS.md:35` tells agents to use `codex-rs/codex-mcp/src/mcp_connection_manager.rs`, which isn't in the repo.
@@ -59,7 +59,7 @@ From a validation run across 69 popular open-source repos (Next.js, VS Code, Rea
 - **BerriAI/litellm** — `@`-imports an 11.8KB `CLAUDE.md` into every session, from two separate files.
 - **49 of the 69** repos had agent configs at all; **36 of those 49** had findings.
 
-These were shallow clones, so the `staleness` rule — which needs full git history — never ran. A full clone would likely surface more, not less.
+These were shallow clones, so the `staleness` rule — which reads git history — never ran. (A `--depth 50` clone reaches about 50 commits of a linear history, though merge-heavy repos retain far more, and staleness does fire on those.) A full clone would likely surface more, not less.
 
 ## Commands
 
@@ -207,7 +207,12 @@ Fleet scanning is strictly read-only: it never opens PRs or modifies the scanned
 
 ## Scope
 
-unrot is read-only static analysis — single-repo (`scan`/`check`) plus multi-repo fleet reporting. No auto-fix, no config sync (yet — see the roadmap note above), no LLM calls. Validated against 69 real-world open-source repos for crash-freedom and false-positive rate — every error-level finding hand-verified — plus a mutation-testing harness that injects known rot into real configs (99%+ caught) and confirms the forgiveness heuristics stay quiet (188/188 clean).
+unrot is read-only static analysis — single-repo (`scan`/`check`) plus multi-repo fleet reporting. No auto-fix, no config sync (yet — see the roadmap note above), no LLM calls.
+
+Accuracy is measured two ways, both against real repos:
+
+- **Precision** — on a 20-repo held-out corpus spanning Java, PHP, C#, Ruby, Go, C++, and Swift (ecosystems the rules were never tuned on), every error-level finding was individually verified against the repo: 15 of 16 held up on the first run, and the one false positive it surfaced has been fixed. Earlier releases were validated the same way across 69 open-source repos.
+- **Recall** — a mutation harness injects known rot into real config files and checks that the matching rule fires: **354 of 356** injected defects caught (99.4%). Alongside those, **440 of 440** negative controls stayed quiet, confirming the forgiveness heuristics don't fire on valid references, hedged phrasing, or commented-out prose.
 
 ## License
 
