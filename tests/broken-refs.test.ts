@@ -522,6 +522,30 @@ describe('broken-refs', () => {
     expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
   });
 
+  it('still flags refs from a config committed inside a gitignored directory', () => {
+    const repo = track(
+      makeRepo(
+        {},
+        {
+          commits: [
+            {
+              files: {
+                '.gitignore': '/.cursor\n',
+                '.cursor/rules/main.mdc': 'See @docs/missing-thing.md for details\n',
+                'src/app.ts': 'export {}\n',
+              },
+              forceAdd: ['.cursor/rules/main.mdc'],
+              daysAgo: 1,
+            },
+          ],
+        },
+      ),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain('docs/missing-thing.md');
+  });
+
   it('forgives absent paths that match gitignore rules (build output)', () => {
     const repo = track(
       makeRepo(

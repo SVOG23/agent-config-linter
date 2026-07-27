@@ -7,6 +7,8 @@ export interface CommitSpec {
   files: Record<string, string>;
   daysAgo: number;
   message?: string;
+  /** Paths to stage with `git add -f`, for files a .gitignore rule would skip. */
+  forceAdd?: string[];
 }
 
 export interface RepoOpts {
@@ -50,6 +52,7 @@ export function makeRepo(files: Record<string, string> = {}, opts: RepoOpts = {}
     for (const commit of opts.commits ?? []) {
       writeAll(commit.files);
       git(root, null, 'add', '-A');
+      if (commit.forceAdd) git(root, null, 'add', '-f', ...commit.forceAdd);
       const date = new Date(Date.now() - commit.daysAgo * 86_400_000).toISOString();
       git(
         root,

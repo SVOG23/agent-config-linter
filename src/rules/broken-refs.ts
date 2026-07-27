@@ -35,10 +35,16 @@ const ILLUSTRATIVE = /\b(?:for example|an example|e\.g\.|examples?\s*:)/i;
 /** Conditional mood proposes a file worth creating rather than claiming one exists. */
 const PROSPECTIVE = /\bwould\s+(?:be|need|go|live|contain|include|help)\b/i;
 
-/** True when git would ignore this path — expected to be absent from a fresh clone. */
-function isGitIgnored(root: string, relPath: string): boolean {
+/**
+ * True when git would ignore this path — expected to be absent from a fresh
+ * clone. `--no-index` answers purely from the ignore rules, which is what we
+ * want when asking about a directory that holds tracked files.
+ */
+function isGitIgnored(root: string, relPath: string, noIndex = false): boolean {
+  const args = ['-C', root, 'check-ignore', '-q'];
+  if (noIndex) args.push('--no-index');
   try {
-    execFileSync('git', ['-C', root, 'check-ignore', '-q', relPath], { stdio: 'ignore' });
+    execFileSync('git', [...args, relPath], { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -163,6 +169,21 @@ export const brokenRefs: Rule = {
       return [...candidates].sort((a, b) => a.length - b.length)[0];
     };
 
+    // A config file can be committed inside a gitignored directory (a tracked
+    // .cursor/rules file under an ignored `/.cursor`). Paths resolved beside it
+    // inherit that ignore, which says nothing about whether they should exist —
+    // without this, every reference in such a file would be forgiven.
+    const dirIgnored = new Map<string, boolean>();
+    const isDocDirIgnored = (fileDir: string): boolean => {
+      if (fileDir === '' || !ctx.git) return false;
+      let cached = dirIgnored.get(fileDir);
+      if (cached === undefined) {
+        cached = isGitIgnored(ctx.root, fileDir, true);
+        dirIgnored.set(fileDir, cached);
+      }
+      return cached;
+    };
+
     const isBroken = (ref: ExtractedRef, fileDir: string, lineText: string): boolean => {
       const cleaned = ref.value.replace(/^\//, '');
       if (isConfigLocationMention(cleaned)) return false;
@@ -204,7 +225,15 @@ export const brokenRefs: Rule = {
       }
 
       // Matches a gitignore rule: build output expected to be absent when fresh.
-      if (ctx.git && candidates.some((c) => isGitIgnored(ctx.root, c))) return false;
+      const inheritsDocIgnore = isDocDirIgnored(fileDir);
+      if (
+        ctx.git &&
+        candidates.some((c) =>
+          inheritsDocIgnore && c.startsWith(`${fileDir}/`) ? false : isGitIgnored(ctx.root, c),
+        )
+      ) {
+        return false;
+      }
       return true;
     };
 
