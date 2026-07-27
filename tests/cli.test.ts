@@ -99,7 +99,7 @@ describe('runCli', () => {
     const repo = track(makeRepo({}));
     const help = await cli(['--help'], repo.root);
     expect(help.code).toBe(0);
-    expect(help.stdout).toMatch(/agentlint (check|scan)/);
+    expect(help.stdout).toMatch(/aclint (check|scan)/);
     const version = await cli(['--version'], repo.root);
     expect(version.code).toBe(0);
     expect(version.stdout).toMatch(/\d+\.\d+\.\d+/);

@@ -20,13 +20,15 @@ npx agent-config-linter scan
 npx agent-config-linter check --json
 ```
 
-Or install it: `npm i -D agent-config-linter`, then run `agentlint`.
+Or install it: `npm i -D agent-config-linter`, then run `aclint` (or `agent-config-linter` — both binaries are installed).
+
+> Not affiliated with the separate `agentlint` npm package.
 
 ## Commands
 
 ```
-agentlint scan  [path] [--json] [--no-color]
-agentlint check [path] [--json] [--no-color] [--config <file>] [--rules <a,b>]
+aclint scan  [path] [--json] [--no-color]
+aclint check [path] [--json] [--no-color] [--config <file>] [--rules <a,b>]
 ```
 
 | Exit code | Meaning |
