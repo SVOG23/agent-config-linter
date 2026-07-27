@@ -1,4 +1,4 @@
-import type { CheckResult, ConfigFile, ScanResult } from '../types.js';
+import type { CheckResult, ConfigFile, Finding, FleetResult, ScanResult } from '../types.js';
 
 function fileEntry(file: ConfigFile) {
   return {
@@ -18,21 +18,48 @@ export function renderScanJson(result: ScanResult): string {
   );
 }
 
+function findingEntry(f: Finding) {
+  return {
+    rule: f.rule,
+    severity: f.severity,
+    file: f.file,
+    line: f.line,
+    message: f.message,
+    ...(f.suggestion ? { suggestion: f.suggestion } : {}),
+  };
+}
+
 export function renderCheckJson(result: CheckResult): string {
   return JSON.stringify(
     {
       schemaVersion: 1,
       root: result.root,
       files: result.files.map(fileEntry),
-      findings: result.findings.map((f) => ({
-        rule: f.rule,
-        severity: f.severity,
-        file: f.file,
-        line: f.line,
-        message: f.message,
-        ...(f.suggestion ? { suggestion: f.suggestion } : {}),
-      })),
+      findings: result.findings.map(findingEntry),
       summary: result.summary,
+    },
+    null,
+    2,
+  );
+}
+
+export function renderFleetJson(result: FleetResult): string {
+  return JSON.stringify(
+    {
+      schemaVersion: 2,
+      fleet: true,
+      target: result.target,
+      repos: result.repos.map((repo) =>
+        repo.error !== undefined
+          ? { repo: repo.repo, health: null, error: repo.error }
+          : {
+              repo: repo.repo,
+              health: repo.health ?? null,
+              summary: repo.summary,
+              findings: (repo.findings ?? []).map(findingEntry),
+            },
+      ),
+      totals: result.totals,
     },
     null,
     2,
