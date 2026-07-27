@@ -239,6 +239,16 @@ describe('broken-refs', () => {
     expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
   });
 
+  it('forgives a "./" path that exists in the directory the doc works from', () => {
+    const repo = track(
+      makeRepo({
+        '.agents/skills/docs/SKILL.md': '## Step 3 — Sync (from `docs/`)\n\nFirst time: `./sync-web-site.sh`\n',
+        'docs/sync-web-site.sh': 'echo sync\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
   it('ignores references inside HTML comments', () => {
     const repo = track(
       makeRepo({

@@ -189,8 +189,10 @@ export const brokenRefs: Rule = {
       if (cleaned.split('/').some((segment) => SKIP_DIRS.has(segment))) return false;
 
       // Context-relative prose: the exact path exists deeper in the monorepo.
+      // A leading "./" is relative to whatever directory the doc tells the
+      // reader to work from, which is rarely the doc's own directory.
       repoFileList ??= [...ctx.repoFiles];
-      const suffix = `/${cleaned}`;
+      const suffix = `/${cleaned.replace(/^\.\//, '')}`;
       if (repoFileList.some((p) => p.endsWith(suffix))) return false;
 
       if (ref.kind === 'path-token' && !/^\.\.?\//.test(ref.value)) {
