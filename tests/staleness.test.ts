@@ -32,8 +32,7 @@ function setThresholds(repo: FixtureRepo, settings: object): void {
 }
 
 describe('staleness', () => {
-  // 121 git commits in the fixture; Windows spawns git ~10x slower than POSIX.
-  it('warns when the config is old and the repo moved on without it (default thresholds)', { timeout: 60_000 }, () => {
+  it('warns when the config is old and the repo moved on without it (default thresholds)', () => {
     const repo = track(repoWithConfigAndActivity(200, 120));
     const findings = staleness.check(makeCtx(repo.root));
     expect(findings).toHaveLength(1);
