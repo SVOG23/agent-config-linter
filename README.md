@@ -203,7 +203,7 @@ Health grades:
 
 Remote repos are shallow-cloned (`--depth 50`) into a temp dir that is deleted afterwards (`--keep` to retain). The `staleness` rule works best with full history, so shallow fleet scans may under-report staleness. Repos that fail to clone or scan are listed at the end of the report and never abort the run. GitHub listing works unauthenticated for public repos; pass `--token` (or set `GITHUB_TOKEN`) for private repos and higher rate limits.
 
-Fleet scanning is strictly read-only: it never opens PRs or modifies the scanned repos. Keeping configs *in sync* across repos is Phase 3 on the roadmap — [tell us how your team would use it](https://github.com/unrot-dev/unrot/issues).
+Fleet scanning is strictly read-only: it never opens PRs or modifies the scanned repos. Keeping configs *in sync* across repos is Phase 3 on the roadmap — [tell us how your team would use it](https://github.com/unrot-dev/unrot/issues/5).
 
 ## Scope
 
