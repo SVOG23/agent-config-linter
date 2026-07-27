@@ -15,6 +15,15 @@ const PLACEHOLDER =
 /** Lines that forbid creating the referenced file are not existence claims. */
 const NEGATED_CREATE = /\b(?:don'?t|do not|never|avoid)\s+(?:propos|creat|add|mak|writ)/i;
 
+/**
+ * Lines describing the target as gone ("was removed in #1337", "has been
+ * deleted", "is no longer read", "are obsolete") document history, not
+ * existence claims. Imperatives ("Remove `x.ts` after upgrading") stay
+ * flagged: they require a was/been/got auxiliary to match.
+ */
+const REMOVED_LINE =
+  /\b(?:was|were|is|are|has been|have been|had been|got)\s+(?:since\s+|recently\s+|just\s+)?(?:removed|deleted|dropped|retired)\b|\bno longer\b|\bobsolete\b/i;
+
 /** True when git would ignore this path — expected to be absent from a fresh clone. */
 function isGitIgnored(root: string, relPath: string): boolean {
   try {
@@ -121,7 +130,8 @@ export const brokenRefs: Rule = {
     const isBroken = (ref: ExtractedRef, fileDir: string, lineText: string): boolean => {
       const cleaned = ref.value.replace(/^\//, '');
       if (isConfigLocationMention(cleaned)) return false;
-      if (HEDGED_LINE.test(lineText) || NEGATED_CREATE.test(lineText)) return false;
+      if (HEDGED_LINE.test(lineText) || NEGATED_CREATE.test(lineText) || REMOVED_LINE.test(lineText))
+        return false;
       // GitHub web-path fragments (../blob/master/...) are URLs, not repo paths.
       if (/(?:^|\/)blob\/(?:master|main|HEAD|v?\d[\w.-]*)\//.test(cleaned)) return false;
       // .env files are created at setup time and gitignored by design.

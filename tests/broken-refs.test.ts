@@ -190,6 +190,43 @@ describe('broken-refs', () => {
     expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
   });
 
+  it('skips references described as removed or deleted', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          'The legacy migration (`src/api/legacy-app-preferences-migration.ts`) was removed in issue #1337 after a drain period — it is no longer needed.\nThe `scripts/old-build.sh` wrapper has been deleted; use `npm run build`.\n',
+        'package.json': '{"scripts": {"build": "tsc"}}',
+        'src/api/other.ts': 'export {}\n',
+        'scripts/current-build.sh': 'true\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips references marked obsolete or no longer used', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          'Older notes about `docs/setup-v1.md` are obsolete.\n`config/tuning.json` is no longer read by the loader.\n',
+        'docs/other.md': '# other\n',
+        'config/other.json': '{}\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('still flags refs on lines with an imperative "remove"', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'Remove `src/temp-workaround.ts` after upgrading the SDK\n',
+        'src/index.ts': 'export {}\n',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]!.message).toContain('src/temp-workaround.ts');
+  });
+
   it('accepts npm scripts defined in any workspace package.json', () => {
     const repo = track(
       makeRepo({

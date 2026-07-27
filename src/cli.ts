@@ -170,7 +170,9 @@ export async function runCli(
     const colors = colorize(useColor);
     try {
       const result = await runFleet(args.path, cwd, {
-        configPath: args.configPath,
+        // Per-repo config resolution joins relative paths to each repo root;
+        // one shared --config file must anchor to the invocation cwd instead.
+        configPath: args.configPath === undefined ? undefined : resolve(cwd, args.configPath),
         concurrency: args.concurrency,
         keep: args.keep,
         token: args.token,

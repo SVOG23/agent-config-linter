@@ -104,6 +104,18 @@ describe('unrot fleet CLI', () => {
     expect(result.stderr).toMatch(/fleet/i);
   });
 
+  it('resolves a relative --config against the invocation cwd, not each repo', async () => {
+    const holder = track(makeRepo({ 'fleet-config.json': '{"rules": {"broken-refs": {"severity": "warn"}}}' }));
+    mkdirSync(join(holder.root, 'repos', 'errory'), { recursive: true });
+    writeFileSync(join(holder.root, 'repos', 'errory', 'CLAUDE.md'), 'Read @docs/missing.md\n');
+    const result = await cli(['fleet', 'repos', '--config', 'fleet-config.json', '--json'], holder.root);
+    expect(result.code).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.repos[0].error).toBeUndefined();
+    expect(parsed.totals.errors).toBe(0);
+    expect(parsed.totals.warnings).toBe(1);
+  });
+
   it('mentions fleet in help output', async () => {
     const result = await cli(['--help'], '/');
     expect(result.stdout).toContain('fleet');
