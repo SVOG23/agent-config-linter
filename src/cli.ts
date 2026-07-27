@@ -7,11 +7,11 @@ import { renderCheckJson, renderScanJson } from './report/json.js';
 import { renderCheckText, renderScanText } from './report/terminal.js';
 import { runCheck, runScan } from './run.js';
 
-const USAGE = `aclint — lint AI agent config files (CLAUDE.md, AGENTS.md, .cursorrules, ...)
+const USAGE = `unrot — lint AI agent config files (CLAUDE.md, AGENTS.md, .cursorrules, ...)
 
 Usage:
-  aclint scan  [path] [--json] [--no-color]
-  aclint check [path] [--json] [--no-color] [--config <file>] [--rules <a,b>]
+  unrot scan  [path] [--json] [--no-color]
+  unrot check [path] [--json] [--no-color] [--config <file>] [--rules <a,b>]
 
 Commands:
   scan   Inventory agent config files (path, kind, size, last modified)
@@ -20,7 +20,7 @@ Commands:
 Options:
   --json           Machine-readable output for CI
   --no-color       Disable colored output
-  --config <file>  Config file path (default: .agentlint.json)
+  --config <file>  Config file path (default: .unrot.json, falling back to .agentlint.json)
   --rules <a,b>    Only run the listed rules
   -h, --help       Show this help
   -v, --version    Show version
@@ -126,7 +126,7 @@ export async function runCli(
     out.write(args.json ? renderCheckJson(result) + '\n' : renderCheckText(result, colors));
     return result.summary.errors > 0 ? 1 : 0;
   } catch (error) {
-    err.write(`aclint: ${(error as Error).message}\n`);
+    err.write(`unrot: ${(error as Error).message}\n`);
     return 2;
   }
 }
@@ -143,7 +143,7 @@ if (isMain) {
   runCli(process.argv.slice(2), process.cwd(), process.stdout, process.stderr).then(
     (code) => process.exit(code),
     (error) => {
-      process.stderr.write(`aclint: ${(error as Error).message}\n`);
+      process.stderr.write(`unrot: ${(error as Error).message}\n`);
       process.exit(2);
     },
   );

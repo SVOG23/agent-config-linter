@@ -17,7 +17,7 @@ export const DEFAULT_CONFIG: ResolvedConfig = {
 const SEVERITIES: ReadonlySet<string> = new Set(['error', 'warn', 'info']);
 
 export interface ConfigOverrides {
-  /** Path to a config file, relative to root or absolute. Default: .agentlint.json */
+  /** Path to a config file, relative to root or absolute. Default: .unrot.json, then .agentlint.json */
   configPath?: string;
   /** When set (e.g. from --rules), only these rules run. */
   rules?: string[];
@@ -41,18 +41,21 @@ export function loadConfig(root: string, overrides: ConfigOverrides = {}): Resol
   };
 
   const explicitPath = overrides.configPath;
-  const filePath = explicitPath
-    ? isAbsolute(explicitPath)
-      ? explicitPath
-      : join(root, explicitPath)
-    : join(root, '.agentlint.json');
+  let filePath: string;
+  if (explicitPath) {
+    filePath = isAbsolute(explicitPath) ? explicitPath : join(root, explicitPath);
+  } else {
+    // .unrot.json wins when both exist.
+    const preferred = join(root, '.unrot.json');
+    filePath = existsSync(preferred) ? preferred : join(root, '.agentlint.json');
+  }
 
   if (explicitPath || existsSync(filePath)) {
     let parsed: unknown;
     try {
       parsed = JSON.parse(readFileSync(filePath, 'utf8'));
     } catch (cause) {
-      throw new Error(`Could not read config ${filePath.endsWith('.agentlint.json') ? '.agentlint.json' : filePath}: ${(cause as Error).message}`);
+      throw new Error(`Could not read config ${filePath}: ${(cause as Error).message}`);
     }
     const userRules = (parsed as { rules?: Record<string, Record<string, unknown>> }).rules ?? {};
     for (const [id, settings] of Object.entries(userRules)) {

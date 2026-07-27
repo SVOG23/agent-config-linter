@@ -72,6 +72,25 @@ describe('loadConfig', () => {
     expect(() => loadConfig(repo.root, { rules: ['nope'] })).toThrow(/unknown rule "nope"/i);
   });
 
+  it('loads from .unrot.json', () => {
+    const repo = track(
+      makeRepo({
+        '.unrot.json': JSON.stringify({ rules: { oversized: { warnLines: 42 } } }),
+      }),
+    );
+    expect(loadConfig(repo.root).rules['oversized'].warnLines).toBe(42);
+  });
+
+  it('prefers .unrot.json over .agentlint.json when both exist', () => {
+    const repo = track(
+      makeRepo({
+        '.unrot.json': JSON.stringify({ rules: { oversized: { warnLines: 42 } } }),
+        '.agentlint.json': JSON.stringify({ rules: { oversized: { warnLines: 77 } } }),
+      }),
+    );
+    expect(loadConfig(repo.root).rules['oversized'].warnLines).toBe(42);
+  });
+
   it('loads from an explicit config path', () => {
     const repo = track(
       makeRepo({

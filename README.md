@@ -1,34 +1,34 @@
-# agent-config-linter
+# unrot
 
-Lint the config files that steer your AI coding agents — `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, Claude Code skills and commands, MCP configs, Copilot instructions.
+Your agent configs rot. The repo moves on — files get renamed, scripts get replaced, conventions change — while `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, and the rest quietly keep describing a codebase that no longer exists. Every session your agents start from instructions that are stale, bloated past what models actually follow, contradictory, or pointing at files that are gone. Nothing checks them.
 
-These files go stale, bloat past what models actually follow, contradict each other, and point at files that no longer exist — and nothing checks them. This tool does. Pure static analysis + git: no network calls, no telemetry, no LLM calls, and it never modifies your files.
+**unrot** finds the rot: a linter for the config files that steer your AI coding agents — `CLAUDE.md`, `AGENTS.md`, `.cursorrules`, Claude Code skills and commands, MCP configs, Copilot instructions. Pure static analysis + git: no network calls, no telemetry, no LLM calls, and it never modifies your files.
 
 ## Quick start
 
 ```bash
-npx agent-config-linter check
+npx unrot check
 ```
 
 Zero config required. Run it at the root of any repo.
 
 ```bash
 # Inventory every agent config file in the repo
-npx agent-config-linter scan
+npx unrot scan
 
 # JSON output + non-zero exit on errors — works as a CI gate
-npx agent-config-linter check --json
+npx unrot check --json
 ```
 
-Or install it: `npm i -D agent-config-linter`, then run `aclint` (or `agent-config-linter` — both binaries are installed).
+Or install it: `npm i -D unrot`, then run `unrot` (or `agent-config-linter` — both binaries are installed).
 
 > Not affiliated with the separate `agentlint` npm package.
 
 ## Commands
 
 ```
-aclint scan  [path] [--json] [--no-color]
-aclint check [path] [--json] [--no-color] [--config <file>] [--rules <a,b>]
+unrot scan  [path] [--json] [--no-color]
+unrot check [path] [--json] [--no-color] [--config <file>] [--rules <a,b>]
 ```
 
 | Exit code | Meaning |
@@ -59,7 +59,7 @@ The rules are deliberately conservative. `broken-refs`, for example, forgives pa
 
 ## Configuration (optional)
 
-Create `.agentlint.json` at the repo root to tune thresholds, change severities, or disable rules:
+Create `.unrot.json` at the repo root to tune thresholds, change severities, or disable rules (`.agentlint.json` also works; `.unrot.json` wins if both exist):
 
 ```json
 {
@@ -111,7 +111,7 @@ Thresholds: `staleness.maxAgeDays`, `staleness.minCommitsSince`, `missing-config
 
 ```yaml
 - name: Lint agent configs
-  run: npx agent-config-linter check --json
+  run: npx unrot check --json
 ```
 
 ## Scope
