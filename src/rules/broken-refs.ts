@@ -10,7 +10,12 @@ const HEDGED_LINE = /\b(?:if|unless)\b[^;!?\n]{0,60}?\b(?:exists?|present|availa
 
 /** Metasyntactic names mark example paths, not claims (`./foo.ts`, `src/xxx/xxxService.ts`, `test_EventNameHere.py`, `YYYY-MM-DD-topic.mdx`). */
 const PLACEHOLDER =
-  /(?:^|\/)(?:foo|bar|baz|qux|quux|yyy|zzz)(?:[./]|$)|(?:^|\/)xxx[\w-]*(?:[./]|$)|(?:^|\/)(?:my|your)[-_]?(?:command|file|app|module|project|script|test|tool|feature|class|func\w*|component|service|dir|folder|thing|example)s?\.\w{1,8}$|Here\.\w{1,8}$|YYYY[-_]MM[-_]DD|(?:file|dir|folder)[-_]name\./;
+  /(?:^|\/)(?:foo|bar|baz|qux|quux|yyy|zzz)(?:[./]|$)|(?:^|\/)xxx[\w-]*(?:[./]|$)|(?:^|\/)(?:my|your)[-_]?(?:command|file|app|module|project|script|test|class|func\w*|component|service|dir|folder|thing|example)s?\.\w{1,8}$|Here\.\w{1,8}$|YYYY[-_]MM[-_]DD|(?:file|dir|folder)[-_]name\./;
+
+const TUTORIAL_PLACEHOLDER =
+  /(?:^|\/)(?:my|your)[-_]?(?:tool|feature)s?\.\w{1,8}$/;
+const TUTORIAL_CONTEXT =
+  /\byour\s+(?:implementation|code)\b|\b(?:placeholder|example)\b|\b(?:create|add|write|implement)\b/i;
 
 /** Lines that forbid creating the referenced file are not existence claims. */
 const NEGATED_CREATE = /\b(?:don'?t|do not|never|avoid)\s+(?:propos|creat|add|mak|writ)/i;
@@ -207,6 +212,7 @@ export const brokenRefs: Rule = {
       // .env files are created at setup time and gitignored by design.
       if (/^\.env(\..+)?$/.test(cleaned.slice(cleaned.lastIndexOf('/') + 1))) return false;
       if (PLACEHOLDER.test(cleaned)) return false;
+      if (TUTORIAL_PLACEHOLDER.test(cleaned) && TUTORIAL_CONTEXT.test(lineText)) return false;
       const candidates = candidatesFor(fileDir, ref.value);
       if (candidates.length === 0) return false; // escapes the repo; cannot verify
 

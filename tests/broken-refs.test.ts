@@ -80,9 +80,11 @@ describe('extractRefs', () => {
 
   it('does not treat bun run file paths as package scripts', () => {
     const refs = extractRefs(
-      'bun run packages/desktop/scripts/build.ts\nbun run apps/api/scripts/dump-routes.ts\n',
+      'bun run packages/desktop/scripts/build.ts\nbun run apps/api/scripts/dump-routes.ts\nbun run build.ts\nbun run ./build.ts\nbun run build.prod\n',
     );
-    expect(refs.filter((r) => r.kind === 'npm-script')).toHaveLength(0);
+    expect(refs.filter((r) => r.kind === 'npm-script').map((r) => r.value)).toEqual([
+      'build.prod',
+    ]);
   });
 
   it('strips sentence punctuation from script names but keeps prefix colons', () => {
@@ -560,12 +562,25 @@ describe('broken-refs', () => {
     const repo = track(
       makeRepo({
         'AGENTS.md':
-          'Add your implementation at `tools/your_tool.py` or `src/your-feature.ts`.\n',
+          'Add your implementation at `tools/your_tool.py` or `src/your-feature.ts`.\nCreate `src/your-feature.ts`:\n**1. Create `tools/your_tool.py`:**\n',
         'tools/real_tool.py': 'pass\n',
         'src/app.ts': 'export {}\n',
       }),
     );
     expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('checks factual references whose names start with my or your', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          'The implementation lives in `src/my-feature.ts` and `tools/your_tool.py`.\n',
+        'src/app.ts': 'export {}\n',
+        'tools/real_tool.py': 'pass\n',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(2);
   });
 
   it('skips placeholder paths that were never real claims', () => {
