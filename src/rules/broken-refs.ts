@@ -10,7 +10,7 @@ const HEDGED_LINE = /\b(?:if|unless)\b[^;!?\n]{0,60}?\b(?:exists?|present|availa
 
 /** Metasyntactic names mark example paths, not claims (`./foo.ts`, `src/xxx/xxxService.ts`, `test_EventNameHere.py`, `YYYY-MM-DD-topic.mdx`). */
 const PLACEHOLDER =
-  /(?:^|\/)(?:foo|bar|baz|qux|quux|yyy|zzz)(?:[./]|$)|(?:^|\/)xxx[\w-]*(?:[./]|$)|(?:^|\/)(?:my|your)[-_]?(?:command|file|app|module|project|script|test|class|func\w*|component|service|dir|folder|thing|example)s?\.\w{1,8}$|Here\.\w{1,8}$|YYYY[-_]MM[-_]DD|(?:file|dir|folder)[-_]name\./;
+  /(?:^|\/)(?:foo|bar|baz|qux|quux|yyy|zzz)(?:[./]|$)|(?:^|\/)xxx[\w-]*(?:[./]|$)|(?:^|\/)(?:my|your)[-_]?(?:command|file|app|module|project|script|test|tool|feature|class|func\w*|component|service|dir|folder|thing|example)s?\.\w{1,8}$|Here\.\w{1,8}$|YYYY[-_]MM[-_]DD|(?:file|dir|folder)[-_]name\./;
 
 /** Lines that forbid creating the referenced file are not existence claims. */
 const NEGATED_CREATE = /\b(?:don'?t|do not|never|avoid)\s+(?:propos|creat|add|mak|writ)/i;
@@ -34,6 +34,15 @@ const ILLUSTRATIVE = /\b(?:for example|an example|e\.g\.|examples?\s*:)/i;
 
 /** Conditional mood proposes a file worth creating rather than claiming one exists. */
 const PROSPECTIVE = /\bwould\s+(?:be|need|go|live|contain|include|help)\b/i;
+
+/** A backticked repo name immediately owning the path makes it an external reference. */
+function isExternalRepoRef(lineText: string, value: string): boolean {
+  const index = lineText.indexOf(`\`${value}\``);
+  return (
+    index >= 0 &&
+    /`[^`]+`\s+repo(?:sitory)?(?:['’]s|,)\s*$/i.test(lineText.slice(0, index))
+  );
+}
 
 /**
  * True when git would ignore this path — expected to be absent from a fresh
@@ -187,6 +196,7 @@ export const brokenRefs: Rule = {
     const isBroken = (ref: ExtractedRef, fileDir: string, lineText: string): boolean => {
       const cleaned = ref.value.replace(/^\//, '');
       if (isConfigLocationMention(cleaned)) return false;
+      if (isExternalRepoRef(lineText, ref.value)) return false;
       if (HEDGED_LINE.test(lineText) || NEGATED_CREATE.test(lineText) || REMOVED_LINE.test(lineText))
         return false;
       // Emphasis markers sit between the keyword and its colon: `- **Examples**:`.
@@ -273,7 +283,13 @@ export const brokenRefs: Rule = {
           continue;
         }
 
-        if (!isBroken(ref, fileDir, lines[ref.line - 1] ?? '')) continue;
+        const currentLine = lines[ref.line - 1] ?? '';
+        const nextLine = lines[ref.line] ?? '';
+        const removalContinues =
+          !/[.!?]\s*$/.test(currentLine) &&
+          /^(?:which\s+)?(?:was|were|has|have)\b.*\b(?:removed|deleted)\b/i.test(nextLine.trim());
+        const lineContext = removalContinues ? `${currentLine} ${nextLine}` : currentLine;
+        if (!isBroken(ref, fileDir, lineContext)) continue;
         seen.add(key);
         const nearMiss = findNearMiss(ref.value);
         findings.push({

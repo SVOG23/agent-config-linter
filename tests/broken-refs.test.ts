@@ -33,6 +33,11 @@ describe('extractRefs', () => {
     expect(links).toEqual(['docs/guide.md', './sub/file.md']);
   });
 
+  it('ignores Cursor mdc links', () => {
+    const refs = extractRefs('[SDK](mdc:packages/sdk-js/) [file](mdc:package.json)\n');
+    expect(refs.filter((r) => r.kind === 'md-link')).toHaveLength(0);
+  });
+
   it('extracts path-like backtick tokens, skipping globs and placeholders', () => {
     const refs = extractRefs(
       'Run `scripts/deploy.sh` then `src/**/*.ts` and `<path/to/file.md>` and `x.py`\nAlso `docs/setup.md`.\n',
@@ -71,6 +76,13 @@ describe('extractRefs', () => {
       'typecheck',
       'lint',
     ]);
+  });
+
+  it('does not treat bun run file paths as package scripts', () => {
+    const refs = extractRefs(
+      'bun run packages/desktop/scripts/build.ts\nbun run apps/api/scripts/dump-routes.ts\n',
+    );
+    expect(refs.filter((r) => r.kind === 'npm-script')).toHaveLength(0);
   });
 
   it('strips sentence punctuation from script names but keeps prefix colons', () => {
@@ -190,6 +202,17 @@ describe('broken-refs', () => {
     expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
   });
 
+  it('skips paths explicitly attributed to another repository', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          "The deployment job is defined in the `infrastructure` repo's `.github/workflows/deploy.yml`.\nCI workflow: `infrastructure` repo, `.github/workflows/release.yml`.\n",
+        '.github/workflows/test.yml': 'name: test\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
   it('skips references described as removed or deleted', () => {
     const repo = track(
       makeRepo({
@@ -201,6 +224,29 @@ describe('broken-refs', () => {
       }),
     );
     expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips references whose removal context continues on the next line', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          'These journeys replace `tests/inner/test_integration.py`\nwhich was deleted with the legacy runtime.\n',
+        'tests/current.test.ts': 'export {}\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('does not apply removal context from a separate sentence', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': '`src/active.ts` is required.\n`src/old.ts` was deleted.\n',
+        'src/app.ts': 'export {}\n',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.message).toContain('src/active.ts');
   });
 
   it('skips references marked obsolete or no longer used', () => {
@@ -505,6 +551,18 @@ describe('broken-refs', () => {
           'Add `src/shell/mycommand.go`\nCreate `src/services/xxxService.ts`\nWrite `docs/changelog/YYYY-MM-DD-topic.mdx`\nSee `src/migrations/0046_meaningless_file_name.sql`\n',
         'src/app.ts': 'x',
         'docs/index.md': 'x',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('skips your_tool.py and your-feature.ts placeholders in tutorial paths', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          'Add your implementation at `tools/your_tool.py` or `src/your-feature.ts`.\n',
+        'tools/real_tool.py': 'pass\n',
+        'src/app.ts': 'export {}\n',
       }),
     );
     expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
