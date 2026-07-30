@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { loadConfig, type ConfigOverrides } from './config.js';
-import { openGit } from './git.js';
+import { gitUnavailableReason, openGit } from './git.js';
 import { ALL_RULES } from './rules/index.js';
 import { scan } from './scanner.js';
 import type { CheckResult, ConfigFile, Finding, RuleContext, ScanResult } from './types.js';
@@ -58,5 +58,10 @@ export function runCheck(root: string, opts: CheckOptions = {}): CheckResult {
     else summary.infos++;
   }
 
-  return { root, files, findings, summary };
+  // Read after the rules have run: `error` is only set once something actually
+  // needed history, so a repo whose history nobody consulted costs no extra
+  // git call and reports no failure. When git would not open at all there is no
+  // GitInfo to carry the reason, so ask separately.
+  const gitError = ctx.git ? ctx.git.error : gitUnavailableReason(root);
+  return { root, files, findings, summary, gitError };
 }

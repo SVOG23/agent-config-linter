@@ -17,7 +17,8 @@ Usage:
 
 Commands:
   scan   Inventory agent config files (path, kind, size, last modified)
-  check  Lint the files and report findings (exit 1 if any errors)
+  check  Lint the files and report findings (exit 1 if any errors, 2 if the
+         check could not complete)
   fleet  Scan many repos and print one combined health report (read-only)
 
 Fleet targets:
@@ -216,7 +217,10 @@ export async function runCli(
     }
     const result = runCheck(root, { configPath: args.configPath, rules: args.rules });
     out.write(args.json ? renderCheckJson(result) + '\n' : renderCheckText(result, colors));
-    return result.summary.errors > 0 ? 1 : 0;
+    if (result.summary.errors > 0) return 1;
+    // The check did not complete, so a 0 here would let CI pass on a repo
+    // nothing verified. Shares 2 with other "could not run" exits.
+    return result.gitError ? 2 : 0;
   } catch (error) {
     err.write(`unrot: ${(error as Error).message}\n`);
     return 2;

@@ -1,3 +1,5 @@
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { runCheck, runScan } from '../src/run.js';
 import { makeRepo, type FixtureRepo } from './helpers.js';
@@ -24,6 +26,50 @@ describe('runScan', () => {
     const repo = track(messyRepo());
     const result = runScan(repo.root);
     expect(result.files.map((f) => f.path)).toEqual(['.cursorrules', 'AGENTS.md', 'CLAUDE.md']);
+  });
+});
+
+describe('runCheck git health', () => {
+  // Reporting "no issues" when the history read failed is a false all-clear:
+  // the rules that depend on git never actually ran. The result has to carry
+  // the failure so the reporter can say the check was incomplete.
+  it('reports the git failure when history cannot be read', () => {
+    const repo = track(
+      makeRepo(
+        { 'src/a.ts': 'x' },
+        { commits: [{ files: { 'CLAUDE.md': '# rules' }, daysAgo: 200 }] },
+      ),
+    );
+    const objects = join(repo.root, '.git', 'objects');
+    rmSync(objects, { recursive: true, force: true });
+    mkdirSync(objects, { recursive: true });
+    const result = runCheck(repo.root);
+    expect(result.gitError).not.toBeNull();
+    expect(result.gitError).toMatch(/bad object|fatal/i);
+  });
+
+  it('reports no git failure for a healthy repo', () => {
+    const repo = track(
+      makeRepo({}, { commits: [{ files: { 'CLAUDE.md': '# rules' }, daysAgo: 5 }] }),
+    );
+    expect(runCheck(repo.root).gitError).toBeNull();
+  });
+
+  it('reports no git failure outside a git repo', () => {
+    const repo = track(makeRepo({ 'CLAUDE.md': '# rules' }));
+    expect(runCheck(repo.root).gitError).toBeNull();
+  });
+
+  // Git refusing to answer at all looks identical to "no repository here" —
+  // both exit 128 — so a dubious-ownership or broken-gitdir repo skipped every
+  // history rule and still reported a clean run. Only the genuine no-repo case
+  // says "(or any of the parent directories)".
+  it('reports a git failure when git refuses to identify the work tree', () => {
+    const repo = track(makeRepo({ 'CLAUDE.md': '# rules' }));
+    writeFileSync(join(repo.root, '.git'), 'gitdir: /nonexistent/elsewhere.git\n');
+    const result = runCheck(repo.root);
+    expect(result.gitError).not.toBeNull();
+    expect(result.gitError).toMatch(/not a git repository/i);
   });
 });
 

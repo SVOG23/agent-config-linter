@@ -37,6 +37,9 @@ export function renderCheckJson(result: CheckResult): string {
       files: result.files.map(fileEntry),
       findings: result.findings.map(findingEntry),
       summary: result.summary,
+      // Non-null means history-based rules were skipped: consumers must not
+      // read an empty findings list as a clean bill of health.
+      gitError: result.gitError,
     },
     null,
     2,

@@ -64,6 +64,17 @@ export function makeRepo(files: Record<string, string> = {}, opts: RepoOpts = {}
         commit.message ?? `commit ${commit.daysAgo}d ago`,
       );
     }
+    // Fail loudly if the commits did not land. Silently short fixtures make
+    // tests that expect findings fail while every test expecting none passes,
+    // so the whole suite reads as "nothing to report" instead of "setup broke".
+    if (opts.commits?.length) {
+      const created = Number(git(root, null, 'rev-list', '--count', 'HEAD').trim());
+      if (created !== opts.commits.length) {
+        throw new Error(
+          `makeRepo: asked for ${opts.commits.length} commits, git created ${created}`,
+        );
+      }
+    }
   }
   writeAll(files);
 

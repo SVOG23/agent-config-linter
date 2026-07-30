@@ -73,6 +73,47 @@ describe('terminal output', () => {
   });
 });
 
+describe('git failure reporting', () => {
+  // "No issues found" on a repo whose history could not be read is a false
+  // all-clear: the git-dependent rules never ran. The clean result has to say so.
+  it('does not claim a clean run when git history could not be read', () => {
+    const result = {
+      root: '/tmp/x',
+      files: [],
+      findings: [],
+      summary: { errors: 0, warnings: 0, infos: 0 },
+      gitError: 'fatal: bad object HEAD',
+    };
+    const text = renderCheckText(result, colorize(false));
+    expect(text).toMatch(/bad object HEAD/);
+    expect(text).not.toMatch(/No issues found/);
+  });
+
+  // A CI script reading --json sees only findings; without this field an
+  // incomplete run is indistinguishable from a clean one.
+  it('carries the git failure into json output', () => {
+    const result = {
+      root: '/tmp/x',
+      files: [],
+      findings: [],
+      summary: { errors: 0, warnings: 0, infos: 0 },
+      gitError: 'fatal: bad object HEAD',
+    };
+    expect(JSON.parse(renderCheckJson(result)).gitError).toBe('fatal: bad object HEAD');
+  });
+
+  it('still reports a clean run when git is healthy', () => {
+    const result = {
+      root: '/tmp/x',
+      files: [],
+      findings: [],
+      summary: { errors: 0, warnings: 0, infos: 0 },
+      gitError: null,
+    };
+    expect(renderCheckText(result, colorize(false))).toMatch(/No issues found/);
+  });
+});
+
 describe('json output', () => {
   it('emits a stable check schema', () => {
     const repo = track(makeRepo({ 'CLAUDE.md': 'Read @docs/missing.md\n' }));
