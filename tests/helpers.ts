@@ -49,6 +49,13 @@ export function makeRepo(files: Record<string, string> = {}, opts: RepoOpts = {}
     git(root, null, 'config', 'user.email', 'fixture@example.com');
     git(root, null, 'config', 'user.name', 'Fixture');
     git(root, null, 'config', 'commit.gpgsign', 'false');
+    // Fixtures commit in a tight loop, which trips git's auto-maintenance. The
+    // repack runs concurrently with the next commit and deletes the loose
+    // objects that commit is still referencing, so git aborts with "invalid
+    // object ... Error building trees". Seen only on the Linux CI runner (git
+    // 2.54), where a broken fixture held 8 packfiles instead of none.
+    git(root, null, 'config', 'gc.auto', '0');
+    git(root, null, 'config', 'maintenance.auto', 'false');
     for (const commit of opts.commits ?? []) {
       writeAll(commit.files);
       git(root, null, 'add', '-A');
