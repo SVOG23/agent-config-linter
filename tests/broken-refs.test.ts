@@ -581,6 +581,38 @@ describe('broken-refs', () => {
     expect(findings[0].suggestion).toContain('src/types/action-type.tsx');
   });
 
+  // A conventional container names what a file *is*, not just where it sits.
+  // PostHog's signals doc cites a deleted `management/commands/select_repo.py`;
+  // a plain `report_generation/select_repo.py` shares the stem but defines no
+  // Command class, so proposing it would send an author to the wrong file.
+  // The reference is still broken — only the guess is withheld.
+  it('omits the near-miss suggestion when it drops a role-defining directory', () => {
+    const repo = track(
+      makeRepo({
+        'products/signals/backend/report_generation/AGENTS.md':
+          '### `select_repo`\n\nFile: `../management/commands/select_repo.py`\n',
+        'products/signals/backend/management/commands/analyze_report.py': 'pass\n',
+        'products/signals/backend/report_generation/select_repo.py': 'pass\n',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].message).toContain('management/commands/select_repo.py');
+    expect(findings[0].suggestion).not.toContain('report_generation/select_repo.py');
+  });
+
+  it('still suggests a near-miss when both paths are plain modules', () => {
+    const repo = track(
+      makeRepo({
+        'proto/AGENTS.md': 'The client lives at `nodejs/src/ingestion/personhog/client.test.ts`.\n',
+        'nodejs/src/common/personhog/client.test.ts': 'export {}\n',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].suggestion).toContain('nodejs/src/common/personhog/client.test.ts');
+  });
+
   it('omits the near-miss suggestion when the name is too common', () => {
     const repo = track(
       makeRepo({
