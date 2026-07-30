@@ -143,6 +143,21 @@ function scriptsDefinedInDoc(content: string): Set<string> {
   return defined;
 }
 
+/**
+ * Directories carrying a framework contract: a file under `management/commands/`
+ * *is* a Django command, one under `migrations/` *is* a migration. A same-named
+ * file outside the container is a different thing, not the original moved — so
+ * it must not be offered as the near-miss. Weaker conventions (`tests/`,
+ * `scripts/`) are deliberately absent: moving a test next to its source or a
+ * script into `tools/` is an ordinary relocation worth suggesting.
+ */
+const ROLE_DIRS = ['management/commands', 'migrations'];
+
+/** Role containers this path sits inside, matched on whole segments. */
+function roleContainers(path: string): string[] {
+  return ROLE_DIRS.filter((role) => `/${path}`.includes(`/${role}/`));
+}
+
 /** Every directory path implied by the repo file list. */
 function collectDirs(repoFiles: Set<string>): Set<string> {
   const dirs = new Set<string>();
@@ -219,7 +234,10 @@ export const brokenRefs: Rule = {
           else stemIndex.set(s, [path]);
         }
       }
-      const candidates = stemIndex.get(stem) ?? [];
+      const roles = roleContainers(value);
+      const candidates = (stemIndex.get(stem) ?? []).filter((path) =>
+        roles.every((role) => roleContainers(path).includes(role)),
+      );
       if (candidates.length === 0 || candidates.length > 3) return null;
       return [...candidates].sort((a, b) => a.length - b.length)[0];
     };
