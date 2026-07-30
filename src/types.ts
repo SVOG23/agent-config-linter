@@ -43,6 +43,12 @@ export interface Finding {
 }
 
 export interface GitInfo {
+  /**
+   * Why a history read failed, or null when git answered. A repo with no
+   * commits yet is not an error — it reports zero commits and no error.
+   * Populated once a history read has been attempted.
+   */
+  readonly error: string | null;
   /** Last commit time touching this path, in ms. Null if never committed. */
   lastCommitMs(relPath: string): number | null;
   /** Number of commits on HEAD strictly after the given time. */
@@ -96,6 +102,12 @@ export interface CheckResult {
   files: ConfigFile[];
   findings: Finding[];
   summary: CheckSummary;
+  /**
+   * Why a git-dependent rule could not read history, or null. Non-null means
+   * the run is incomplete: those rules reported nothing because they had
+   * nothing to read, not because there was nothing to find.
+   */
+  gitError: string | null;
 }
 
 /** A = no findings, B = findings but no errors, C = 1-2 errors, D = 3+ errors, null = no configs. */

@@ -60,7 +60,16 @@ export function renderCheckText(result: CheckResult, c: Colors): string {
 
   if (result.findings.length === 0) {
     const scanned = result.files.length;
-    return `${c.green('✔')} No issues found (${scanned} config file${scanned === 1 ? '' : 's'} checked).\n`;
+    const checked = `${scanned} config file${scanned === 1 ? '' : 's'} checked`;
+    // Rules that need history reported nothing because they could not read it.
+    // Calling that clean would be a false all-clear.
+    if (result.gitError) {
+      return (
+        `${c.yellow('!')} Check incomplete: git history could not be read, so history-based ` +
+        `rules were skipped (${checked}, nothing else to report).\n  ${result.gitError}\n`
+      );
+    }
+    return `${c.green('✔')} No issues found (${checked}).\n`;
   }
 
   const groups = new Map<string, Finding[]>();

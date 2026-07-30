@@ -58,5 +58,8 @@ export function runCheck(root: string, opts: CheckOptions = {}): CheckResult {
     else summary.infos++;
   }
 
-  return { root, files, findings, summary };
+  // Read after the rules have run: `error` is only set once something actually
+  // needed history, so a repo whose history nobody consulted costs no extra
+  // git call and reports no failure.
+  return { root, files, findings, summary, gitError: ctx.git?.error ?? null };
 }
