@@ -1,3 +1,5 @@
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { runCli } from '../src/cli.js';
 import { makeRepo, type FixtureRepo } from './helpers.js';
@@ -41,6 +43,24 @@ describe('runCli', () => {
     const result = await cli(['check'], repo.root);
     expect(result.code).toBe(1);
     expect(result.stdout).toContain('docs/missing.md');
+  });
+
+  // Exiting 0 when the check could not complete lets CI go green on a repo
+  // nothing verified. 2 already means "the tool could not do its job", which is
+  // what an incomplete run is; findings keep 1 so their exit code is unchanged.
+  it('check exits 2 when git could not be read', async () => {
+    const repo = track(makeRepo({ 'CLAUDE.md': '# rules\n' }));
+    writeFileSync(join(repo.root, '.git'), 'gitdir: /nonexistent/elsewhere.git\n');
+    const result = await cli(['check'], repo.root);
+    expect(result.code).toBe(2);
+    expect(result.stdout).toContain('Check incomplete');
+  });
+
+  it('check still exits 1 for findings even when git is unreadable', async () => {
+    const repo = track(makeRepo({ 'CLAUDE.md': 'Read @docs/missing.md\n' }));
+    writeFileSync(join(repo.root, '.git'), 'gitdir: /nonexistent/elsewhere.git\n');
+    const result = await cli(['check'], repo.root);
+    expect(result.code).toBe(1);
   });
 
   it('check exits 0 when only warnings are found', async () => {

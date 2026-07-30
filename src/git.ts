@@ -23,6 +23,20 @@ function run(root: string, args: string[]): RunResult {
   }
 }
 
+/**
+ * Why git could not be used at `root`, or null when this simply is not a repo.
+ * Both cases exit 128, so a repo git refuses to open — dubious ownership, a
+ * broken gitdir pointer — otherwise looked the same as a plain directory and
+ * skipped every history-based rule without saying so. Only the genuine
+ * no-repository-anywhere case mentions the parent directories it searched.
+ */
+export function gitUnavailableReason(root: string): string | null {
+  const inside = run(root, ['rev-parse', '--is-inside-work-tree']);
+  if (inside.ok) return null;
+  if (/not a git repository \(or any/i.test(inside.err)) return null;
+  return inside.err;
+}
+
 /** Returns git metadata helpers for `root`, or null when not inside a git work tree. */
 export function openGit(root: string): GitInfo | null {
   const inside = run(root, ['rev-parse', '--is-inside-work-tree']);

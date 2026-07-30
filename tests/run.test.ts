@@ -1,4 +1,4 @@
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { runCheck, runScan } from '../src/run.js';
@@ -58,6 +58,18 @@ describe('runCheck git health', () => {
   it('reports no git failure outside a git repo', () => {
     const repo = track(makeRepo({ 'CLAUDE.md': '# rules' }));
     expect(runCheck(repo.root).gitError).toBeNull();
+  });
+
+  // Git refusing to answer at all looks identical to "no repository here" —
+  // both exit 128 — so a dubious-ownership or broken-gitdir repo skipped every
+  // history rule and still reported a clean run. Only the genuine no-repo case
+  // says "(or any of the parent directories)".
+  it('reports a git failure when git refuses to identify the work tree', () => {
+    const repo = track(makeRepo({ 'CLAUDE.md': '# rules' }));
+    writeFileSync(join(repo.root, '.git'), 'gitdir: /nonexistent/elsewhere.git\n');
+    const result = runCheck(repo.root);
+    expect(result.gitError).not.toBeNull();
+    expect(result.gitError).toMatch(/not a git repository/i);
   });
 });
 
