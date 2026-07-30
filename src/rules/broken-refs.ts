@@ -40,13 +40,54 @@ const ILLUSTRATIVE = /\b(?:for example|an example|e\.g\.|examples?\s*:)/i;
 /** Conditional mood proposes a file worth creating rather than claiming one exists. */
 const PROSPECTIVE = /\bwould\s+(?:be|need|go|live|contain|include|help)\b/i;
 
-/** A backticked repo name immediately owning the path makes it an external reference. */
+/**
+ * A root-absolute link with no file extension addresses the rendered docs site,
+ * not the repo tree (`[glossary](/docs/app/glossary)` where the sources live in
+ * `docs/01-app/`). Extensionless site routes rarely match the on-disk layout,
+ * so resolving them as paths reports rot that isn't there.
+ */
+function isDocSiteRoute(ref: ExtractedRef): boolean {
+  if (ref.kind !== 'md-link' || !ref.value.startsWith('/')) return false;
+  return !/\.\w{1,8}$/.test(ref.value.slice(ref.value.lastIndexOf('/') + 1));
+}
+
+/**
+ * Top-level directories whose subtree belongs to another repo. A doc that maps
+ * a sibling repo names many paths under a directory this repo happens to share
+ * (`packages/`) while none of their next-level directories exist here — one
+ * foreign tree, not N rotted files. A file moved inside a tree the repo really
+ * has keeps an existing second level (`apps/web/...`), so it stays flagged.
+ */
+const FOREIGN_TREE_MIN_REFS = 3;
+
+function foreignTreeRoots(values: string[], dirs: Set<string>): Set<string> {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    const segments = value.replace(/^\//, '').split('/');
+    if (segments.length < 3) continue; // no second level to judge
+    const [top, second] = segments;
+    if (!dirs.has(top) || dirs.has(`${top}/${second}`)) continue;
+    counts.set(top, (counts.get(top) ?? 0) + 1);
+  }
+  return new Set([...counts].filter(([, n]) => n >= FOREIGN_TREE_MIN_REFS).map(([top]) => top));
+}
+
+/**
+ * Prose that hands the path to another project. Two shapes:
+ * a backticked repo name owning it (``infrastructure` repo's `.github/...``),
+ * or a referring verb naming a hyphenated project before the colon
+ * ("see posthog-js browser: `packages/browser/...`"). The verb is required so
+ * an ordinary lead-in ("Files to edit: `src/gone.ts`") still counts as a claim.
+ */
+const ATTRIBUTED_REPO = /`[^`]+`\s+repo(?:sitory)?(?:['’]s|,)\s*$/i;
+const ATTRIBUTED_PROJECT =
+  /\b(?:see|from|in|per|via|cf\.?)\s+[a-z][\w.]*-[\w.-]+(?:\s+\w+)?\s*:\s*$/i;
+
 function isExternalRepoRef(lineText: string, value: string): boolean {
   const index = lineText.indexOf(`\`${value}\``);
-  return (
-    index >= 0 &&
-    /`[^`]+`\s+repo(?:sitory)?(?:['’]s|,)\s*$/i.test(lineText.slice(0, index))
-  );
+  if (index < 0) return false;
+  const before = lineText.slice(0, index);
+  return ATTRIBUTED_REPO.test(before) || ATTRIBUTED_PROJECT.test(before);
 }
 
 /**
@@ -200,6 +241,7 @@ export const brokenRefs: Rule = {
 
     const isBroken = (ref: ExtractedRef, fileDir: string, lineText: string): boolean => {
       const cleaned = ref.value.replace(/^\//, '');
+      if (isDocSiteRoute(ref)) return false;
       if (isConfigLocationMention(cleaned)) return false;
       if (isExternalRepoRef(lineText, ref.value)) return false;
       if (HEDGED_LINE.test(lineText) || NEGATED_CREATE.test(lineText) || REMOVED_LINE.test(lineText))
@@ -261,6 +303,9 @@ export const brokenRefs: Rule = {
       const content = ctx.read(file);
       const lines = content.split('\n');
       let localScripts: Set<string> | undefined;
+      // Held until the file is fully read: whether a broken path is rot or part
+      // of a foreign tree is a whole-file judgment, not a per-ref one.
+      const pathFindings: { finding: Finding; value: string }[] = [];
 
       for (const ref of extractRefs(content)) {
         const key = `${ref.kind}:${ref.value}`;
@@ -298,16 +343,28 @@ export const brokenRefs: Rule = {
         if (!isBroken(ref, fileDir, lineContext)) continue;
         seen.add(key);
         const nearMiss = findNearMiss(ref.value);
-        findings.push({
-          rule: 'broken-refs',
-          severity: 'error',
-          file: file.path,
-          line: ref.line,
-          message: `Referenced path "${ref.value}" does not exist in the repo`,
-          suggestion: nearMiss
-            ? `Did you mean "${nearMiss}"? Otherwise fix the path or delete the stale reference`
-            : 'Fix the path or delete the stale reference',
+        pathFindings.push({
+          value: ref.value,
+          finding: {
+            rule: 'broken-refs',
+            severity: 'error',
+            file: file.path,
+            line: ref.line,
+            message: `Referenced path "${ref.value}" does not exist in the repo`,
+            suggestion: nearMiss
+              ? `Did you mean "${nearMiss}"? Otherwise fix the path or delete the stale reference`
+              : 'Fix the path or delete the stale reference',
+          },
         });
+      }
+
+      const foreign = foreignTreeRoots(
+        pathFindings.map((p) => p.value),
+        dirs,
+      );
+      for (const { finding, value } of pathFindings) {
+        const top = value.replace(/^\//, '').split('/')[0];
+        if (!foreign.has(top)) findings.push(finding);
       }
     }
     return findings;

@@ -215,6 +215,95 @@ describe('broken-refs', () => {
     expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
   });
 
+  // Root-absolute links in docs point at the rendered site, not the repo tree.
+  // vercel/next.js AGENTS.md links `/docs/app/glossary`; on disk the docs are
+  // numbered (`docs/01-app/`), so resolving the URL as a path reports rot.
+  it('skips root-absolute links with no extension (doc-site routes)', () => {
+    const repo = track(
+      makeRepo({
+        '.agents/skills/insight-error-page/SKILL.md':
+          'Link readers to the [glossary](/docs/app/glossary) for terminology.\n',
+        'docs/01-app/index.mdx': '# App router\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('still flags root-absolute links that name a file', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'See [entry](/src/gone.ts) to start.\n',
+        'src/app.ts': 'code',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].message).toContain('/src/gone.ts');
+  });
+
+  // A skill can document a sibling repo. PostHog/posthog's inbox skill maps
+  // PostHog/code's tree: every path sits under `packages/<pkg>/`, and none of
+  // those packages exist here (this repo ships only `packages/quill`). One
+  // shared prefix missing across many refs is a foreign tree, not N rotted
+  // files — reporting each line as broken is noise.
+  it('skips a cluster of refs describing a sibling repo tree', () => {
+    const repo = track(
+      makeRepo({
+        '.agents/skills/adding-inbox-sources/SKILL.md':
+          'The app renders it via `packages/ui/src/features/inbox/components/DynamicSourceSetup.tsx`.\n' +
+          '1. `packages/shared/src/inbox-types.ts` — add the source to the union.\n' +
+          '2. `packages/api-client/src/posthog-client.ts` — extend the config union.\n' +
+          '3. `packages/core/src/inbox/signalSourceService.ts` — register the service.\n' +
+          '4. `packages/host-router/src/routers/integration.router.ts` — route it.\n',
+        'packages/quill/src/index.ts': 'export {}\n',
+        'products/signals/backend/emission/emit_signals.py': 'pass\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  // Too few refs to read as a foreign tree, but the prose names the project
+  // they belong to ("see posthog-js browser: `packages/browser/...`"). An
+  // attributed path is a pointer to another codebase, not a claim about this one.
+  it('skips paths attributed to a named sibling project', () => {
+    const repo = track(
+      makeRepo({
+        '.agents/skills/survey-sdk-audit/SKILL.md':
+          'See posthog-js browser: `packages/browser/src/extensions/surveys.ts`\n' +
+          'For mobile-specific patterns, see posthog-react-native: `packages/react-native/src/surveys/getActiveMatchingSurveys.ts`\n',
+        'packages/quill/src/index.ts': 'export {}\n',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(0);
+  });
+
+  it('still flags paths after a plain prose colon', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md': 'Files to edit: `src/gone.ts`\n',
+        'src/app.ts': 'code',
+      }),
+    );
+    expect(brokenRefs.check(makeCtx(repo.root))).toHaveLength(1);
+  });
+
+  // The Suna case: one file moved within a tree this repo really has. The
+  // sibling-repo forgiveness above must not swallow it.
+  it('still flags a single moved file inside a tree the repo has', () => {
+    const repo = track(
+      makeRepo({
+        'AGENTS.md':
+          'Use recent surfaces as references before editing:\n' +
+          '`apps/web/src/features/co-worker/project-layout/project-home.tsx`.\n',
+        'apps/web/src/features/workspace/project-layout/project-home.tsx': 'export {}\n',
+      }),
+    );
+    const findings = brokenRefs.check(makeCtx(repo.root));
+    expect(findings).toHaveLength(1);
+    expect(findings[0].message).toContain('co-worker');
+    expect(findings[0].suggestion).toContain('workspace/project-layout/project-home.tsx');
+  });
+
   it('skips references described as removed or deleted', () => {
     const repo = track(
       makeRepo({
